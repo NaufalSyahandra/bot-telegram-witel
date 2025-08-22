@@ -19,9 +19,21 @@ from telegram.ext import (
 import gspread
 from google.oauth2.service_account import Credentials
 from google.auth.transport.requests import AuthorizedSession
+import cloudinary
+import cloudinary.uploader
+import io
+import requests
+
 
 # Load environment variables
 load_dotenv()
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+)
+
 
 # Environment validation
 def validate_env():
@@ -313,6 +325,83 @@ async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=MenuKeyboards.back_menu()
         )
 
+# Handler video (input via caption)
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    current_state = get_user_state(chat_id)
+
+    # Wajib lewat menu "Input Data SC" dulu biar konsisten dgn alurmu
+    if current_state != UserState.WAITING_INPUT:
+        await update.message.reply_text(Messages.SELECT_INPUT_FIRST, reply_markup=MenuKeyboards.main_menu())
+        return
+
+    # Ambil caption berisi format SC/STO/…
+    caption = (update.message.caption or "").strip()
+    if not caption:
+        await update.message.reply_text(
+            "⚠️ Harap sertakan data di *caption* videomu sesuai format di bawah:\n\n" + Messages.INPUT_FORMAT,
+            reply_markup=MenuKeyboards.back_menu()
+        )
+        return
+
+    # Rate limit sama seperti input teks
+    if not check_rate_limit(chat_id):
+        await update.message.reply_text(Messages.RATE_LIMIT)
+        return
+
+    try:
+        # Parse & validasi data dari caption
+        parsed_data = parse_input(caption)
+        validation_errors = validate_input(parsed_data)
+        if validation_errors:
+            error_message = "⚠️ " + "\n".join(validation_errors) + "\n\n" + Messages.INPUT_FORMAT
+            await update.message.reply_text(error_message, reply_markup=MenuKeyboards.back_menu())
+            return
+
+        # Ambil file video dari Telegram
+        video = update.message.video
+        file = await context.bot.get_file(video.file_id)
+
+
+        # Download ke memory (BytesIO)
+        file_stream = io.BytesIO()
+        file_stream.write(requests.get(file.file_path).content)
+        file_stream.seek(0)
+
+        # Upload ke Cloudinary (resource_type video)
+        result = cloudinary.uploader.upload(
+            file_stream,
+            resource_type="video"
+        )
+        video_url = result["secure_url"]
+
+        # Susun baris untuk Sheet: semua field + Link Video di kolom terakhir
+        row_data = [parsed_data[field] for field in EXPECTED_FIELDS] + [video_url]
+
+        # Simpan (pakai executor yang sudah kamu buat)
+        success = await append_to_sheet(row_data)
+
+        if success:
+            await update.message.reply_text(
+                f"✅ Data & video berhasil diupload!\n📺 Link video: {video_url}",
+                reply_markup=MenuKeyboards.main_menu()
+            )
+            set_user_state(chat_id, UserState.IDLE)
+            logger.info(f"Data+Video saved for chat_id {chat_id}: SC={parsed_data.get('SC')} URL={video_url}")
+
+    except gspread.exceptions.APIError as e:
+        logger.error(f"Google Sheets API error for chat_id {chat_id}: {e}")
+        await update.message.reply_text(
+            "❌ Error API Google Sheets. Silakan coba lagi dalam beberapa saat.",
+            reply_markup=MenuKeyboards.back_menu()
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in handle_video for chat_id {chat_id}")
+        await update.message.reply_text(
+            "❌ Terjadi kesalahan saat upload video. Coba lagi ya.",
+            reply_markup=MenuKeyboards.back_menu()
+        )
+
 
 # Error Handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -357,6 +446,10 @@ def main():
             filters.TEXT & ~filters.COMMAND & ~filters.Regex(menu_pattern),
             handle_input
         ))
+
+        # Video + caption
+        app.add_handler(MessageHandler(filters.VIDEO, handle_video))
+        app.add_handler(MessageHandler(filters.Document.VIDEO, handle_video))
 
         # Fallback handler (catch-all, taruh paling akhir)
         app.add_handler(MessageHandler(filters.ALL, fallback_handler))
