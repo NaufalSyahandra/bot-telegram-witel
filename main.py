@@ -67,10 +67,10 @@ def setup_google_sheets():
         creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=scopes)
 
         client = gspread.Client(auth=creds)
-        client.session = AuthorizedSession(creds)  # ✅ pakai dari google.auth.transport.requests
+        client.session = AuthorizedSession(creds)
 
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
-        logger.info("Google Sheets connection established successfully (no deprecation warning)")
+        logger.info("Google Sheets connection established successfully")
         return sheet
     except Exception as e:
         logger.error(f"Failed to setup Google Sheets: {e}")
@@ -83,6 +83,8 @@ sheet = setup_google_sheets()
 class UserState(Enum):
     IDLE = "idle"
     WAITING_INPUT = "waiting_input"
+    WAITING_PHOTO = "waiting_photo"
+    WAITING_VIDEO = "waiting_video"
 
 
 class Messages:
@@ -108,6 +110,10 @@ Detail Kendala: Kabel putus di tiang 5
     RATE_LIMIT = "⏳ Tunggu sebentar sebelum kirim data lagi."
     SELECT_INPUT_FIRST = "⚠️ Silakan pilih menu *Input Data SC* dulu sebelum mengirim data."
 
+    REQUEST_PHOTO = "✅ Data berhasil diterima!\n\n📷 Sekarang silakan upload *foto* terkait kendala."
+    REQUEST_VIDEO = "✅ Foto berhasil diupload!\n\n🎥 Sekarang silakan upload *video* terkait kendala."
+    UPLOAD_COMPLETE = "✅ Semua data (teks, foto, video) berhasil disimpan ke Google Sheet!"
+
 
 class MenuKeyboards:
     MAIN = [
@@ -117,6 +123,10 @@ class MenuKeyboards:
 
     BACK = [["🏠 Menu Utama"]]
 
+    SKIP_PHOTO = [["⏭️ Lewati Foto"], ["🏠 Menu Utama"]]
+    
+    SKIP_VIDEO = [["⏭️ Lewati Video"], ["🏠 Menu Utama"]]
+
     @staticmethod
     def main_menu():
         return ReplyKeyboardMarkup(MenuKeyboards.MAIN, resize_keyboard=True, one_time_keyboard=False)
@@ -124,6 +134,14 @@ class MenuKeyboards:
     @staticmethod
     def back_menu():
         return ReplyKeyboardMarkup(MenuKeyboards.BACK, resize_keyboard=True)
+    
+    @staticmethod
+    def skip_photo_menu():
+        return ReplyKeyboardMarkup(MenuKeyboards.SKIP_PHOTO, resize_keyboard=True)
+    
+    @staticmethod
+    def skip_video_menu():
+        return ReplyKeyboardMarkup(MenuKeyboards.SKIP_VIDEO, resize_keyboard=True)
 
 
 # Expected fields for data input
@@ -214,11 +232,45 @@ def check_rate_limit(chat_id: int) -> bool:
     return True
 
 
+async def save_complete_data_to_sheet(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    """Save complete data (text + photo + video) to Google Sheet"""
+    try:
+        parsed_data = context.user_data.get("pending_data", {})
+        photo_url = context.user_data.get("photo_url", "")
+        video_url = context.user_data.get("video_url", "")
+
+        # Debug log untuk memastikan data ada
+        logger.info(f"Saving to sheet - chat_id: {chat_id}")
+        logger.info(f"Text data: {parsed_data}")
+        logger.info(f"Photo URL: '{photo_url}'")
+        logger.info(f"Video URL: '{video_url}'")
+
+        # Prepare row data according to EXPECTED_FIELDS order
+        row_data = [parsed_data.get(field, "") for field in EXPECTED_FIELDS]
+        
+        # PERBAIKAN: Pastikan foto di kolom H dan video di kolom I
+        row_data.append(photo_url)  # Kolom H - Photo URL
+        row_data.append(video_url)  # Kolom I - Video URL
+
+        logger.info(f"Final row data: {row_data}")
+
+        success = await append_to_sheet(row_data)
+        
+        if success:
+            logger.info(f"✅ Complete data saved successfully for chat_id {chat_id}: SC={parsed_data.get('SC')}")
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"❌ Error saving complete data for chat_id {chat_id}: {e}")
+        return False
+
+
 # Command Handlers
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
     chat_id = update.effective_chat.id
     set_user_state(chat_id, UserState.IDLE)
+    context.user_data.clear()  # Clear any pending data
 
     await update.message.reply_text(
         Messages.WELCOME,
@@ -239,6 +291,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "📝 Input Data SC":
         set_user_state(chat_id, UserState.WAITING_INPUT)
+        context.user_data.clear()  # Clear any previous data
         await update.message.reply_text(
             Messages.INPUT_FORMAT,
             reply_markup=MenuKeyboards.back_menu()
@@ -260,10 +313,46 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "🏠 Menu Utama":
         set_user_state(chat_id, UserState.IDLE)
+        context.user_data.clear()  # Clear pending data when going back to main menu
         await update.message.reply_text(
             "🏠 Kembali ke menu utama",
             reply_markup=MenuKeyboards.main_menu()
         )
+    
+    elif text == "⏭️ Lewati Foto":
+        current_state = get_user_state(chat_id)
+        if current_state == UserState.WAITING_PHOTO:
+            context.user_data["photo_url"] = ""  # Set empty photo URL
+            set_user_state(chat_id, UserState.WAITING_VIDEO)
+            await update.message.reply_text(
+                Messages.REQUEST_VIDEO,
+                reply_markup=MenuKeyboards.skip_video_menu()
+            )
+            logger.info(f"Photo skipped for chat_id {chat_id}")
+    
+    elif text == "⏭️ Lewati Video":
+        current_state = get_user_state(chat_id)
+        if current_state == UserState.WAITING_VIDEO:
+            context.user_data["video_url"] = ""  # Set empty video URL
+            
+            # Save complete data to sheet SETELAH semua tahap selesai
+            success = await save_complete_data_to_sheet(context, chat_id)
+            
+            if success:
+                await update.message.reply_text(
+                    Messages.UPLOAD_COMPLETE,
+                    reply_markup=MenuKeyboards.main_menu()
+                )
+            else:
+                await update.message.reply_text(
+                    "❌ Terjadi error saat menyimpan data ke spreadsheet.",
+                    reply_markup=MenuKeyboards.main_menu()
+                )
+            
+            # Reset state and clear data
+            set_user_state(chat_id, UserState.IDLE)
+            context.user_data.clear()
+            logger.info(f"Video skipped and all data saved for chat_id {chat_id}")
 
 
 # Input Handler
@@ -272,16 +361,13 @@ async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     current_state = get_user_state(chat_id)
 
-    # Kalau user tidak sedang menunggu input, biarkan fallback_handler yang tangani
     if current_state != UserState.WAITING_INPUT:
         return
 
-    # Rate limiting
     if not check_rate_limit(chat_id):
         await update.message.reply_text(Messages.RATE_LIMIT)
         return
 
-    # Parse and validate input
     parsed_data = parse_input(update.message.text)
     validation_errors = validate_input(parsed_data)
 
@@ -290,116 +376,143 @@ async def handle_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(error_message)
         return
 
-    # Save to Google Sheets
     try:
-        # Show typing indicator
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+ 
+        # Save parsed data for later use - JANGAN simpan ke spreadsheet dulu
+        context.user_data["pending_data"] = parsed_data
+        context.user_data["photo_url"] = ""  # Initialize photo URL
+        context.user_data["video_url"] = ""  # Initialize video URL
 
-        # Prepare data for sheet
-        row_data = [parsed_data[field] for field in EXPECTED_FIELDS]
+        # Set state to wait for photo
+        set_user_state(chat_id, UserState.WAITING_PHOTO)
 
-        # Save to sheet (async)
-        success = await append_to_sheet(row_data)
-
-        if success:
-            await update.message.reply_text(
-                Messages.DATA_SAVED,
-                reply_markup=MenuKeyboards.main_menu()
-            )
-            set_user_state(chat_id, UserState.IDLE)
-
-            # Log successful data entry
-            logger.info(f"Data saved for chat_id {chat_id}: SC={parsed_data.get('SC')}")
-
-    except gspread.exceptions.APIError as e:
-        logger.error(f"Google Sheets API error for chat_id {chat_id}: {e}")
         await update.message.reply_text(
-            "❌ Error API Google Sheets. Silakan coba lagi dalam beberapa saat.",
-            reply_markup=MenuKeyboards.back_menu()
+            Messages.REQUEST_PHOTO,
+            reply_markup=MenuKeyboards.skip_photo_menu()
         )
+
+        logger.info(f"Data text received and waiting for media, chat_id {chat_id}: SC={parsed_data.get('SC')}")
 
     except Exception as e:
-        logger.exception(f"Unexpected error for chat_id {chat_id}")
+        logger.error(f"Error while handling input for chat_id {chat_id}: {e}")
         await update.message.reply_text(
-            "❌ Terjadi kesalahan tidak terduga. Silakan coba lagi atau hubungi admin.",
+            "❌ Terjadi error saat memproses data.",
             reply_markup=MenuKeyboards.back_menu()
         )
 
-# Handler video (input via caption)
-async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+# Photo Handler
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle photo upload"""
     chat_id = update.effective_chat.id
     current_state = get_user_state(chat_id)
 
-    # Wajib lewat menu "Input Data SC" dulu biar konsisten dgn alurmu
-    if current_state != UserState.WAITING_INPUT:
-        await update.message.reply_text(Messages.SELECT_INPUT_FIRST, reply_markup=MenuKeyboards.main_menu())
-        return
-
-    # Ambil caption berisi format SC/STO/…
-    caption = (update.message.caption or "").strip()
-    if not caption:
+    if current_state != UserState.WAITING_PHOTO:
         await update.message.reply_text(
-            "⚠️ Harap sertakan data di *caption* videomu sesuai format di bawah:\n\n" + Messages.INPUT_FORMAT,
-            reply_markup=MenuKeyboards.back_menu()
+            "⚠️ Silakan input data terlebih dahulu sebelum upload foto.",
+            reply_markup=MenuKeyboards.main_menu()
         )
-        return
-
-    # Rate limit sama seperti input teks
-    if not check_rate_limit(chat_id):
-        await update.message.reply_text(Messages.RATE_LIMIT)
         return
 
     try:
-        # Parse & validasi data dari caption
-        parsed_data = parse_input(caption)
-        validation_errors = validate_input(parsed_data)
-        if validation_errors:
-            error_message = "⚠️ " + "\n".join(validation_errors) + "\n\n" + Messages.INPUT_FORMAT
-            await update.message.reply_text(error_message, reply_markup=MenuKeyboards.back_menu())
-            return
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+        
+        # Get the largest photo
+        photo = update.message.photo[-1]
+        file = await context.bot.get_file(photo.file_id)
 
-        # Ambil file video dari Telegram
-        video = update.message.video
-        file = await context.bot.get_file(video.file_id)
-
-
-        # Download ke memory (BytesIO)
+        # Download file to memory
         file_stream = io.BytesIO()
-        file_stream.write(requests.get(file.file_path).content)
+        await file.download_to_memory(file_stream)
         file_stream.seek(0)
 
-        # Upload ke Cloudinary (resource_type video)
-        result = cloudinary.uploader.upload(
-            file_stream,
-            resource_type="video"
+        # Upload to Cloudinary
+        result = cloudinary.uploader.upload(file_stream, resource_type="image")
+        photo_url = result["secure_url"]
+
+        # Save photo URL
+        context.user_data["photo_url"] = photo_url
+
+        # Move to waiting for video
+        set_user_state(chat_id, UserState.WAITING_VIDEO)
+
+        await update.message.reply_text(
+            Messages.REQUEST_VIDEO,
+            reply_markup=MenuKeyboards.skip_video_menu()
         )
+
+        logger.info(f"✅ Photo uploaded and URL saved for chat_id {chat_id}: {photo_url}")
+        logger.info(f"Current user_data: {context.user_data}")  # Debug log
+
+    except Exception as e:
+        logger.exception(f"Error uploading photo for chat_id {chat_id}")
+        await update.message.reply_text(
+            "❌ Gagal upload foto. Silakan coba lagi atau lewati.",
+            reply_markup=MenuKeyboards.skip_photo_menu()
+        )
+
+
+# Video Handler
+async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle video upload"""
+    chat_id = update.effective_chat.id
+    current_state = get_user_state(chat_id)
+
+    if current_state != UserState.WAITING_VIDEO:
+        await update.message.reply_text(
+            "⚠️ Silakan input data dan upload foto terlebih dahulu.",
+            reply_markup=MenuKeyboards.main_menu()
+        )
+        return
+
+    try:
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_video")
+        
+        # Get video file
+        video = update.message.video or update.message.document
+        file = await context.bot.get_file(video.file_id)
+
+        # Download file to memory
+        file_stream = io.BytesIO()
+        await file.download_to_memory(file_stream)
+        file_stream.seek(0)
+
+        # Upload to Cloudinary
+        result = cloudinary.uploader.upload(file_stream, resource_type="video")
         video_url = result["secure_url"]
 
-        # Susun baris untuk Sheet: semua field + Link Video di kolom terakhir
-        row_data = [parsed_data[field] for field in EXPECTED_FIELDS] + [video_url]
+        # Save video URL
+        context.user_data["video_url"] = video_url
+        
+        logger.info(f"✅ Video uploaded and URL saved for chat_id {chat_id}: {video_url}")
+        logger.info(f"Current user_data before saving: {context.user_data}")  # Debug log
 
-        # Simpan (pakai executor yang sudah kamu buat)
-        success = await append_to_sheet(row_data)
+        # SEKARANG baru save semua data ke spreadsheet setelah video selesai
+        success = await save_complete_data_to_sheet(context, chat_id)
 
         if success:
             await update.message.reply_text(
-                f"✅ Data & video berhasil diupload!\n📺 Link video: {video_url}",
+                Messages.UPLOAD_COMPLETE,
                 reply_markup=MenuKeyboards.main_menu()
             )
-            set_user_state(chat_id, UserState.IDLE)
-            logger.info(f"Data+Video saved for chat_id {chat_id}: SC={parsed_data.get('SC')} URL={video_url}")
+        else:
+            await update.message.reply_text(
+                "❌ Data berhasil diupload tetapi gagal disimpan ke spreadsheet.",
+                reply_markup=MenuKeyboards.main_menu()
+            )
 
-    except gspread.exceptions.APIError as e:
-        logger.error(f"Google Sheets API error for chat_id {chat_id}: {e}")
-        await update.message.reply_text(
-            "❌ Error API Google Sheets. Silakan coba lagi dalam beberapa saat.",
-            reply_markup=MenuKeyboards.back_menu()
-        )
+        logger.info(f"Video uploaded and all data saved for chat_id {chat_id}: {video_url}")
+
+        # Reset state and clear data
+        set_user_state(chat_id, UserState.IDLE)
+        context.user_data.clear()
+
     except Exception as e:
-        logger.exception(f"Unexpected error in handle_video for chat_id {chat_id}")
+        logger.exception(f"Error uploading video for chat_id {chat_id}")
         await update.message.reply_text(
-            "❌ Terjadi kesalahan saat upload video. Coba lagi ya.",
-            reply_markup=MenuKeyboards.back_menu()
+            "❌ Gagal upload video. Silakan coba lagi atau lewati.",
+            reply_markup=MenuKeyboards.skip_video_menu()
         )
 
 
@@ -420,6 +533,16 @@ async def fallback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ Format data tidak dikenali. " + Messages.INPUT_FORMAT,
             reply_markup=MenuKeyboards.back_menu()
         )
+    elif current_state == UserState.WAITING_PHOTO:
+        await update.message.reply_text(
+            "⚠️ Silakan upload foto atau lewati tahap ini.",
+            reply_markup=MenuKeyboards.skip_photo_menu()
+        )
+    elif current_state == UserState.WAITING_VIDEO:
+        await update.message.reply_text(
+            "⚠️ Silakan upload video atau lewati tahap ini.",
+            reply_markup=MenuKeyboards.skip_video_menu()
+        )
     else:
         await update.message.reply_text(
             "❓ Perintah tidak dikenali. Gunakan menu di bawah atau ketik /start",
@@ -438,20 +561,21 @@ def main():
         app.add_handler(CommandHandler("help", help_command))
 
         # Menu handlers (specific buttons)
-        menu_pattern = "^(📝 Input Data SC|📊 Cek Data|❓ Bantuan|🏠 Menu Utama)$"
+        menu_pattern = "^(📝 Input Data SC|📊 Cek Data|❓ Bantuan|🏠 Menu Utama|⏭️ Lewati Foto|⏭️ Lewati Video)$"
         app.add_handler(MessageHandler(filters.Regex(menu_pattern), menu_handler))
 
-        # Input handler (hanya teks yang bukan command dan bukan tombol menu)
-        app.add_handler(MessageHandler(
-            filters.TEXT & ~filters.COMMAND & ~filters.Regex(menu_pattern),
-            handle_input
-        ))
-
-        # Video + caption
+        # Media handlers
+        app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
         app.add_handler(MessageHandler(filters.VIDEO, handle_video))
         app.add_handler(MessageHandler(filters.Document.VIDEO, handle_video))
 
-        # Fallback handler (catch-all, taruh paling akhir)
+        # Input data handler (text input)
+        app.add_handler(MessageHandler(
+            filters.TEXT & ~filters.COMMAND & ~filters.Regex(menu_pattern), 
+            handle_input
+        ))
+
+        # Fallback handler (catch-all, place at the end)
         app.add_handler(MessageHandler(filters.ALL, fallback_handler))
 
         # Error handler
