@@ -1,12 +1,13 @@
 import re
 import logging
 from typing import Dict, List, Optional
+from datetime import datetime
 from constants import (
     KendalaType,
     REQUIRED_FIELDS,
-    SPREADSHEET_COLUMNS,
     MEDIA_FIELDS_WITH_TYPES,
-    Messages
+    Messages,
+    get_sheet_config
 )
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,9 @@ class DataProcessor:
             match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
             data[field] = match.group(1).strip() if match else None
 
+        # Add created_at timestamp
+        data['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         logger.info(f"Parsed data for {kendala_type.value}: {data}")
         return data
 
@@ -45,22 +49,43 @@ class DataProcessor:
         if missing:
             errors.append(f"Field kosong: {', '.join(missing)}")
 
+        # Validate NIK format (should be 16 digits)
+        nik = data.get("NIK", "")
+        if nik and (not nik.isdigit() or len(nik) != 16):
+            errors.append("NIK harus berupa 16 digit angka")
+
+        # Validate NAMA (should not be empty and contain only letters and spaces)
+        nama = data.get("NAMA", "")
+        if nama and not re.match(r'^[a-zA-Z\s]+$', nama.strip()):
+            errors.append("NAMA hanya boleh berisi huruf dan spasi")
+
         # Validate SC format (should be numeric)
         sc = data.get("SC", "")
         if sc and not sc.isdigit():
             errors.append("SC harus berupa angka")
 
-        # Validate distance format (for TAT and ODP_FULL)
-        if kendala_type in [KendalaType.TAT, KendalaType.ODP_FULL]:
+        # Validate distance format (for TAT, ODP_FULL, and PELANGGAN_MANJA)
+        if kendala_type in [KendalaType.TAT, KendalaType.ODP_FULL, KendalaType.PELANGGAN_MANJA]:
             jarak = data.get("Jarak", "")
             if jarak and not re.match(r'^\d+\s*m$', jarak.strip(), re.IGNORECASE):
                 errors.append("Jarak harus berformat angka + 'm' (contoh: 20m)")
 
-            # Validate Jumlah Tiang format (for TAT)
-            if kendala_type == KendalaType.TAT:
-                jumlah_tiang = data.get("Jumlah Tiang", "")
-                if jumlah_tiang and not jumlah_tiang.isdigit():
-                    errors.append("Jumlah Tiang harus berupa angka")
+        # Validate Jumlah Tiang format (for TAT)
+        if kendala_type == KendalaType.TAT:
+            jumlah_tiang = data.get("Jumlah Tiang", "")
+            if jumlah_tiang and not jumlah_tiang.isdigit():
+                errors.append("Jumlah Tiang harus berupa angka")
+
+        # Validate date format for pelanggan types (optional validation)
+        if kendala_type == KendalaType.PELANGGAN_MANJA:
+            tanggal = data.get("Tanggal (Manja)", "")
+            if tanggal and not re.match(r'^\d{4}-\d{2}-\d{2}$', tanggal.strip()):
+                logger.warning(f"Date format might be incorrect for Tanggal (Manja): {tanggal}")
+
+        if kendala_type == KendalaType.PELANGGAN_CANCEL:
+            tanggal = data.get("Tanggal (Cancel)", "")
+            if tanggal and not re.match(r'^\d{4}-\d{2}-\d{2}$', tanggal.strip()):
+                logger.warning(f"Date format might be incorrect for Tanggal (Cancel): {tanggal}")
 
         logger.info(f"Validation errors for {kendala_type.value}: {errors}")
         return errors
@@ -68,9 +93,13 @@ class DataProcessor:
     @staticmethod
     def prepare_sheet_data(data: Dict[str, str], kendala_type: KendalaType) -> List[str]:
         """Prepare data for spreadsheet insertion with NAN for missing fields"""
+        # Get the appropriate sheet config based on kendala type
+        sheet_config = get_sheet_config(kendala_type)
+        columns = sheet_config["columns"]
+        
         row_data = []
 
-        for column in SPREADSHEET_COLUMNS:
+        for column in columns:
             if column in data and data[column]:
                 row_data.append(data[column])
             else:
@@ -88,6 +117,18 @@ class DataProcessor:
         return None
 
     @staticmethod
+    def get_target_sheet_name(kendala_type: KendalaType) -> str:
+        """Get target sheet name based on kendala type"""
+        sheet_config = get_sheet_config(kendala_type)
+        return sheet_config["name"]
+
+    @staticmethod
+    def get_sheet_columns(kendala_type: KendalaType) -> List[str]:
+        """Get sheet columns based on kendala type"""
+        sheet_config = get_sheet_config(kendala_type)
+        return sheet_config["columns"]
+
+    @staticmethod
     def get_input_format(kendala_type: KendalaType) -> str:
         """Get appropriate input format based on kendala type"""
         if kendala_type == KendalaType.TAJ:
@@ -96,8 +137,12 @@ class DataProcessor:
             return Messages.TAT_FORMAT
         elif kendala_type == KendalaType.ODP_FULL:
             return Messages.ODP_FULL_FORMAT
-        elif kendala_type == KendalaType.PELANGGAN:
-            return Messages.GENERAL_FORMAT.format(kendala_type="Kendala Pelanggan")
+        elif kendala_type == KendalaType.PELANGGAN_MANJA:
+            return Messages.PELANGGAN_MANJA_FORMAT
+        elif kendala_type == KendalaType.PELANGGAN_CANCEL:
+            return Messages.PELANGGAN_CANCEL_FORMAT
+        elif kendala_type == KendalaType.CABUT_PASANG:
+            return Messages.CABUT_PASANG_FORMAT
         else:  # LAINNYA
             return Messages.GENERAL_FORMAT.format(kendala_type="Kendala Lainnya")
 
@@ -129,6 +174,24 @@ class DataProcessor:
             )
         elif kendala_type == KendalaType.ODP_FULL:
             return Messages.ODP_FULL_MEDIA_PROMPT.format(
+                step=step + 1,
+                total=total_steps,
+                current_requirement=description
+            )
+        elif kendala_type == KendalaType.PELANGGAN_MANJA:
+            return Messages.PELANGGAN_MANJA_MEDIA_PROMPT.format(
+                step=step + 1,
+                total=total_steps,
+                current_requirement=description
+            )
+        elif kendala_type == KendalaType.PELANGGAN_CANCEL:
+            return Messages.PELANGGAN_CANCEL_MEDIA_PROMPT.format(
+                step=step + 1,
+                total=total_steps,
+                current_requirement=description
+            )
+        elif kendala_type == KendalaType.CABUT_PASANG:
+            return Messages.CABUT_PASANG_MEDIA_PROMPT.format(
                 step=step + 1,
                 total=total_steps,
                 current_requirement=description

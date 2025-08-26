@@ -9,7 +9,6 @@ from constants import (
     KendalaType,
     Messages,
     MenuKeyboards,
-    SPREADSHEET_COLUMNS,
     MEDIA_FIELDS_WITH_TYPES,
     MEDIA_FIELDS
 )
@@ -160,11 +159,10 @@ class BotHandlers:
             )
 
         elif text == "👤 Kendala Pelanggan":
-            user_manager.set_user_kendala_type(chat_id, KendalaType.PELANGGAN)
-            user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
+            user_manager.set_user_state(chat_id, UserState.PELANGGAN_SUBMENU)
             await update.message.reply_text(
-                self.data_processor.get_input_format(KendalaType.PELANGGAN),
-                reply_markup=MenuKeyboards.back_menu()
+                Messages.PELANGGAN_SUBMENU,
+                reply_markup=MenuKeyboards.pelanggan_menu()
             )
 
         elif text == "❓ Kendala Lainnya":
@@ -204,6 +202,31 @@ class BotHandlers:
             user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
             await update.message.reply_text(
                 self.data_processor.get_input_format(KendalaType.ODP_FULL),
+                reply_markup=MenuKeyboards.back_menu()
+            )
+
+        # Pelanggan submenu options
+        elif text == "😤 Pelanggan Manja":
+            user_manager.set_user_kendala_type(chat_id, KendalaType.PELANGGAN_MANJA)
+            user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
+            await update.message.reply_text(
+                self.data_processor.get_input_format(KendalaType.PELANGGAN_MANJA),
+                reply_markup=MenuKeyboards.back_menu()
+            )
+
+        elif text == "❌ Pelanggan Cancel":
+            user_manager.set_user_kendala_type(chat_id, KendalaType.PELANGGAN_CANCEL)
+            user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
+            await update.message.reply_text(
+                self.data_processor.get_input_format(KendalaType.PELANGGAN_CANCEL),
+                reply_markup=MenuKeyboards.back_menu()
+            )
+
+        elif text == "🔄 Cabut Pasang":
+            user_manager.set_user_kendala_type(chat_id, KendalaType.CABUT_PASANG)
+            user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
+            await update.message.reply_text(
+                self.data_processor.get_input_format(KendalaType.CABUT_PASANG),
                 reply_markup=MenuKeyboards.back_menu()
             )
 
@@ -254,13 +277,18 @@ class BotHandlers:
         try:
             last_row = user_manager.get_user_last_row(chat_id)
             media_urls_dict = user_manager.get_user_media_urls(chat_id)
+            sheet_name = user_manager.get_user_sheet_name(chat_id)
 
-            if last_row > 0 and kendala_type:
+            if last_row > 0 and kendala_type and sheet_name:
+                # Get sheet columns for this kendala type
+                sheet_columns = self.data_processor.get_sheet_columns(kendala_type)
+                
                 # Update each media column
                 for media_field in MEDIA_FIELDS[kendala_type]:
-                    column_index = SPREADSHEET_COLUMNS.index(media_field)
-                    urls = media_urls_dict.get(media_field, [])
-                    await sheets_service.update_cell(last_row, column_index, urls)
+                    if media_field in sheet_columns:
+                        column_index = sheet_columns.index(media_field)
+                        urls = media_urls_dict.get(media_field, [])
+                        await sheets_service.update_cell(last_row, column_index, urls, sheet_name)
 
             user_manager.set_user_state(chat_id, UserState.IDLE)
             media_count = user_manager.get_user_media_count(chat_id)
@@ -314,19 +342,21 @@ class BotHandlers:
         try:
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
-            # Prepare data for sheet with NAN for missing fields
+            # Get target sheet name and prepare data
+            sheet_name = self.data_processor.get_target_sheet_name(kendala_type)
             row_data = self.data_processor.prepare_sheet_data(parsed_data, kendala_type)
 
-            # Save to sheet (async)
-            last_row = await sheets_service.append_row(row_data)
+            # Save to appropriate sheet
+            last_row = await sheets_service.append_row(row_data, sheet_name)
             user_manager.set_user_last_row(chat_id, last_row)
+            user_manager.set_user_sheet_name(chat_id, sheet_name)
 
             if last_row > 0:
                 # Change state to waiting for media
                 user_manager.set_user_state(chat_id, UserState.WAITING_MEDIA)
                 user_manager.set_user_media_step(chat_id, 0)  # Start from step 0
 
-                logger.info(f"Starting media collection for chat_id {chat_id}, kendala_type: {kendala_type.value}")
+                logger.info(f"Starting media collection for chat_id {chat_id}, kendala_type: {kendala_type.value}, sheet: {sheet_name}")
 
                 await update.message.reply_text(
                     self.data_processor.get_media_prompt(kendala_type, 0),
@@ -336,7 +366,7 @@ class BotHandlers:
 
                 # Log successful data entry
                 logger.info(
-                    f"Data saved for chat_id {chat_id}: SC={parsed_data.get('SC')}, Kendala={kendala_type.value}")
+                    f"Data saved for chat_id {chat_id}: SC={parsed_data.get('SC')}, Kendala={kendala_type.value}, NIK={parsed_data.get('NIK')}")
 
         except gspread.exceptions.APIError as e:
             logger.error(f"Google Sheets API error for chat_id {chat_id}: {e}")

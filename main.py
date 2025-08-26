@@ -37,10 +37,11 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("start", bot_handlers.start_command))
         self.app.add_handler(CommandHandler("help", bot_handlers.help_command))
 
-        # Menu handlers (specific buttons)
+        # Menu handlers (specific buttons) - Updated to include pelanggan submenu
         menu_pattern = (
             "^(🔧 Kendala Teknik|👤 Kendala Pelanggan|❓ Kendala Lainnya|🆘 Bantuan|"
             "📶 Tidak ada Jaringan \\(TAJ\\)|🏗️ Tidak ada Tiang \\(TAT\\)|🔌 ODP Full|"
+            "😤 Pelanggan Manja|❌ Pelanggan Cancel|🔄 Cabut Pasang|"
             "🏠 Menu Utama|✅ Selesai)$"
         )
         self.app.add_handler(MessageHandler(filters.Regex(menu_pattern), bot_handlers.menu_handler))
