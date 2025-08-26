@@ -3,3 +3,6 @@
 config/service_account.json
 
 .idea
+
+__pycache__/
+*.pyc
