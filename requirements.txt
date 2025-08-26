@@ -1,4 +1,11 @@
-python-telegram-bot==20.7
-gspread>=5.12.0
-google-auth>=2.23.0
+# Core dependencies
+python-telegram-bot>=20.0
 python-dotenv>=1.0.0
+
+# Google Sheets integration
+gspread>=5.0.0
+google-oauth2-tool>=0.0.3
+google-auth>=2.0.0
+
+# Media upload
+cloudinary>=1.30.0
