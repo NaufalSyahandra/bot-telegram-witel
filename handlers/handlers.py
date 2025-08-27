@@ -42,7 +42,7 @@ class BotHandlers:
         await update.message.reply_text(Messages.HELP_TEXT)
 
     async def handle_media(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle media uploads (photos and videos)"""
+        """Handle media uploads (photos and videos) - PHOTOS FIRST, VIDEOS SECOND"""
         chat_id = update.effective_chat.id
         current_state = user_manager.get_user_state(chat_id)
 
@@ -90,10 +90,13 @@ class BotHandlers:
             # Validate media type matches expectation
             if actual_media_type != expected_media_type:
                 expected_name = "Foto" if expected_media_type == "photo" else "Video"
+                current_phase = self._get_media_phase(kendala_type, current_step)
+                
                 await update.message.reply_text(
                     f"❌ Media tidak sesuai!\n\n"
-                    f"🔸 **Yang diminta**: {expected_name} - {description}\n"
+                    f"🔸 **{current_phase}**: {expected_name} - {description}\n"
                     f"🔸 **Yang Anda kirim**: {media_type_name}\n\n"
+                    f"⚠️ **Urutan**: FOTO DULU ➡️ VIDEO KEMUDIAN\n\n"
                     f"Silakan kirim {expected_name.lower()} yang sesuai.",
                     reply_markup=MenuKeyboards.media_menu()
                 )
@@ -120,10 +123,12 @@ class BotHandlers:
                 if next_media_info:
                     field_name_next, expected_type_next, description_next = next_media_info
                     expected_name_next = "Foto" if expected_type_next == "photo" else "Video"
+                    next_phase = self._get_media_phase(kendala_type, new_step)
 
                     await update.message.reply_text(
                         f"✅ {media_type_name} diterima!\n\n"
-                        f"🔸 **Langkah {new_step + 1} dari {total_required}**: Kirim {expected_name_next.lower()} - {description_next}",
+                        f"🔸 **{next_phase}**: Kirim {expected_name_next.lower()} - {description_next}\n\n"
+                        f"📋 Progress: {new_step} dari {total_required} selesai",
                         reply_markup=MenuKeyboards.media_menu()
                     )
             else:
@@ -131,6 +136,7 @@ class BotHandlers:
                 media_count = user_manager.get_user_media_count(chat_id)
                 await update.message.reply_text(
                     f"✅ Semua media berhasil diterima ({media_count} file)!\n\n"
+                    f"📸 Foto: ✅ | 🎥 Video: ✅\n\n"
                     f"Klik 'Selesai' untuk menyelesaikan input data.",
                     reply_markup=MenuKeyboards.media_menu()
                 )
@@ -144,6 +150,17 @@ class BotHandlers:
                 Messages.MEDIA_ERROR,
                 reply_markup=MenuKeyboards.media_menu()
             )
+
+    def _get_media_phase(self, kendala_type: KendalaType, step: int) -> str:
+        """Get current media phase (FOTO DULU / VIDEO SEKARANG)"""
+        media_list = MEDIA_FIELDS_WITH_TYPES.get(kendala_type, [])
+        if step < len(media_list):
+            field_name, media_type, description = media_list[step]
+            if media_type == "photo":
+                return "FOTO DULU"
+            else:
+                return "VIDEO SEKARANG"
+        return "LANGKAH"
 
     async def menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle menu button clicks"""
@@ -244,7 +261,7 @@ class BotHandlers:
             user_manager.clear_user_data(chat_id)
 
     async def _handle_finish_media(self, update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
-        """Handle finish media button"""
+        """Handle finish media button - check photos first, then videos"""
         kendala_type = user_manager.get_user_kendala_type(chat_id)
         if not kendala_type:
             await update.message.reply_text(
@@ -257,18 +274,34 @@ class BotHandlers:
 
         # Check if all required media have been uploaded
         if current_step < total_required:
-            # Show remaining requirements
+            # Show remaining requirements with phase indication
             remaining_media = []
+            photo_pending = []
+            video_pending = []
+            
             for i in range(current_step, total_required):
                 media_info = self.data_processor.get_expected_media_info(kendala_type, i)
                 if media_info:
                     _, media_type, desc = media_info
-                    type_name = "📸 Foto" if media_type == "photo" else "🎥 Video"
-                    remaining_media.append(f"{i + 1}. {type_name}: {desc}")
+                    if media_type == "photo":
+                        photo_pending.append(f"{i + 1}. 📸 {desc}")
+                    else:
+                        video_pending.append(f"{i + 1}. 🎥 {desc}")
+
+            message_parts = ["⚠️ Masih ada media yang belum dikirim:"]
+            
+            if photo_pending:
+                message_parts.append("\n📸 **FOTO yang masih dibutuhkan:**")
+                message_parts.extend(photo_pending)
+                
+            if video_pending:
+                message_parts.append("\n🎥 **VIDEO yang masih dibutuhkan:**")
+                message_parts.extend(video_pending)
+                
+            message_parts.append("\n⚠️ **Ingat urutan**: FOTO DULU ➡️ VIDEO KEMUDIAN")
 
             await update.message.reply_text(
-                f"⚠️ Masih ada media yang belum dikirim:\n\n" +
-                "\n".join(remaining_media),
+                "\n".join(message_parts),
                 reply_markup=MenuKeyboards.media_menu()
             )
             return
@@ -283,7 +316,7 @@ class BotHandlers:
                 # Get sheet columns for this kendala type
                 sheet_columns = self.data_processor.get_sheet_columns(kendala_type)
                 
-                # Update each media column
+                # Update each media column - photos first, then videos
                 for media_field in MEDIA_FIELDS[kendala_type]:
                     if media_field in sheet_columns:
                         column_index = sheet_columns.index(media_field)
@@ -292,8 +325,17 @@ class BotHandlers:
 
             user_manager.set_user_state(chat_id, UserState.IDLE)
             media_count = user_manager.get_user_media_count(chat_id)
+            
+            # Count photos and videos
+            photo_count = sum(1 for field, media_type, _ in MEDIA_FIELDS_WITH_TYPES.get(kendala_type, []) 
+                            if media_type == "photo" and media_urls_dict.get(field))
+            video_count = sum(1 for field, media_type, _ in MEDIA_FIELDS_WITH_TYPES.get(kendala_type, []) 
+                            if media_type == "video" and media_urls_dict.get(field))
+            
             await update.message.reply_text(
-                f"✅ Data berhasil disimpan lengkap dengan {media_count} media!",
+                f"✅ Data berhasil disimpan lengkap!\n\n"
+                f"📊 **Media tersimpan**: {media_count} file\n"
+                f"📸 Foto: {photo_count} | 🎥 Video: {video_count}\n\n",
                 reply_markup=MenuKeyboards.main_menu()
             )
 
@@ -407,8 +449,9 @@ class BotHandlers:
                 if expected_media_info:
                     field_name, media_type, description = expected_media_info
                     media_name = "Foto" if media_type == "photo" else "Video"
+                    phase = self._get_media_phase(kendala_type, current_step)
                     await update.message.reply_text(
-                        f"📸 Kirim media dokumentasi sesuai urutan!\n\n🔸 **Yang diminta sekarang**: {media_name} - {description}",
+                        f"📸 Kirim media dokumentasi sesuai urutan!\n\n🔸 **{phase}**: {media_name} - {description}\n\n⚠️ **Urutan**: FOTO DULU ➡️ VIDEO KEMUDIAN",
                         reply_markup=MenuKeyboards.media_menu()
                     )
                 else:
