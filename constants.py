@@ -142,7 +142,6 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Foto dengan pelanggan/foto rumah pelanggan
 2. 🎥 Video kondisi rumah pelanggan
-3. 🎥 Video penjelasan kondisi jaringan
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -155,7 +154,6 @@ Detail Kendala: {kendala_type}
 2. 📸 Foto rencana pemasangan tiang
 3. 📸 Bukti sudah menyerahkan file untuk sitac
 4. 🎥 Video kondisi rumah pelanggan
-5. 🎥 Video penjelasan kondisi area pemasangan tiang
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -166,7 +164,6 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Foto dengan pelanggan/foto rumah pelanggan
 2. 📸 Capture lensa nearest ODP dimana masih dalam range 250m
-3. 🎥 Video penjelasan kondisi ODP dan jarak
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -177,7 +174,6 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Eviden Manja (foto bukti)
 2. 📸 Foto bukti WA / foto dengan pelanggan
-3. 🎥 Video penjelasan kondisi pelanggan manja
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -188,7 +184,6 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Eviden Cancel (foto bukti)
 2. 📸 Foto bukti WA / foto dengan pelanggan
-3. 🎥 Video penjelasan alasan cancel pelanggan
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -199,7 +194,6 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Eviden modem/jalur kabel ke pelanggan
 2. 📸 Foto bukti WA / foto dengan pelanggan
-3. 🎥 Video proses cabut pasang modem/kabel
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -299,11 +293,7 @@ SHEET_CONFIGS = {
             "Foto Rencana Pemasangan Tiang",
             "Bukti Sudah Menyerahkan File untuk Sitac",
             "Capture Lensa Nearest ODP dimana Masih dalam Range 250m",
-            # Video columns (before created_at)
             "Video Kondisi Rumah Pelanggan",
-            "Video Penjelasan Kondisi Jaringan",
-            "Video Penjelasan Kondisi Area Pemasangan Tiang",
-            "Video Penjelasan Kondisi ODP dan Jarak",
             "created_at"
         ]
     },
@@ -317,10 +307,6 @@ SHEET_CONFIGS = {
             # Photo columns
             "Eviden Modem/Jalur Kabel ke Pelanggan",
             "Foto Bukti WA / Foto dengan Pelanggan",
-            # Video columns (before created_at)
-            "Video Penjelasan Kondisi Pelanggan Manja",
-            "Video Penjelasan Alasan Cancel Pelanggan",
-            "Video Proses Cabut Pasang Modem/Kabel",
             "created_at"
         ]
     },
@@ -330,7 +316,6 @@ SHEET_CONFIGS = {
             "NIK", "NAMA", "SC", "STO", "Detail Kendala", "Tag Pelanggan",
             # Photo columns
             "Foto Penjelasan Kondisi Kendala",
-            # Video columns (before created_at)
             "Video Penjelasan Kondisi Kendala",
             "created_at"
         ]
@@ -365,7 +350,6 @@ MEDIA_FIELDS_WITH_TYPES = {
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
         # Video fields after photos
         ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
-        ("Video Penjelasan Kondisi Jaringan", "video", "🎥 Video penjelasan kondisi jaringan")
     ],
     KendalaType.TAT: [
         # Photo fields first
@@ -374,35 +358,26 @@ MEDIA_FIELDS_WITH_TYPES = {
         ("Bukti Sudah Menyerahkan File untuk Sitac", "photo", "📸 Bukti sudah menyerahkan file untuk sitac"),
         # Video fields after photos
         ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
-        ("Video Penjelasan Kondisi Area Pemasangan Tiang", "video", "🎥 Video penjelasan kondisi area pemasangan tiang")
     ],
     KendalaType.ODP_FULL: [
         # Photo fields first
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
         ("Capture Lensa Nearest ODP dimana Masih dalam Range 250m", "photo", "📸 Capture lensa nearest ODP dimana masih dalam range 250m"),
-        # Video fields after photos
-        ("Video Penjelasan Kondisi ODP dan Jarak", "video", "🎥 Video penjelasan kondisi ODP dan jarak")
     ],
     KendalaType.PELANGGAN_MANJA: [
         # Photo fields first
         ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Manja (foto bukti)"),
         ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
-        # Video fields after photos
-        ("Video Penjelasan Kondisi Pelanggan Manja", "video", "🎥 Video penjelasan kondisi pelanggan manja")
     ],
     KendalaType.PELANGGAN_CANCEL: [
         # Photo fields first
         ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Cancel (foto bukti)"),
         ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
-        # Video fields after photos
-        ("Video Penjelasan Alasan Cancel Pelanggan", "video", "🎥 Video penjelasan alasan cancel pelanggan")
     ],
     KendalaType.CABUT_PASANG: [
         # Photo fields first
         ("Eviden Modem/Jalur Kabel ke Pelanggan", "photo", "📸 Eviden modem/jalur kabel ke pelanggan"),
         ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
-        # Video fields after photos
-        ("Video Proses Cabut Pasang Modem/Kabel", "video", "🎥 Video proses cabut pasang modem/kabel")
     ],
     KendalaType.LAINNYA: [
         # Photo fields first
