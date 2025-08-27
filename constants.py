@@ -142,6 +142,7 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Foto dengan pelanggan/foto rumah pelanggan
 2. 🎥 Video kondisi rumah pelanggan
+3. 🎥 Video penjelasan kondisi jaringan
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -154,6 +155,7 @@ Detail Kendala: {kendala_type}
 2. 📸 Foto rencana pemasangan tiang
 3. 📸 Bukti sudah menyerahkan file untuk sitac
 4. 🎥 Video kondisi rumah pelanggan
+5. 🎥 Video penjelasan kondisi area pemasangan tiang
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -164,6 +166,7 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Foto dengan pelanggan/foto rumah pelanggan
 2. 📸 Capture lensa nearest ODP dimana masih dalam range 250m
+3. 🎥 Video penjelasan kondisi ODP dan jarak
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -174,6 +177,7 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Eviden Manja (foto bukti)
 2. 📸 Foto bukti WA / foto dengan pelanggan
+3. 🎥 Video penjelasan kondisi pelanggan manja
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -184,6 +188,7 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Eviden Cancel (foto bukti)
 2. 📸 Foto bukti WA / foto dengan pelanggan
+3. 🎥 Video penjelasan alasan cancel pelanggan
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
@@ -194,17 +199,31 @@ Detail Kendala: {kendala_type}
 ✅ Yang harus dikirim:
 1. 📸 Eviden modem/jalur kabel ke pelanggan
 2. 📸 Foto bukti WA / foto dengan pelanggan
+3. 🎥 Video proses cabut pasang modem/kabel
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
+    # Updated LAINNYA media prompt to match the template structure
+    LAINNYA_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi secara berurutan!
+
+🔸 **Langkah {step} dari {total}**: {current_requirement}
+
+✅ Yang harus dikirim:
+1. 📸 Foto penjelasan kondisi kendala
+2. 🎥 Video penjelasan kondisi kendala
+
+⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
+
+    # Legacy general media prompt (kept for backward compatibility)
     GENERAL_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi!
 
 🔸 **Langkah {step} dari {total}**: {current_requirement}
 
 ✅ Yang harus dikirim:
-1. 📸 Foto dengan pelanggan/foto rumah pelanggan
+1. 📸 Foto Penjelasan kondisi kendala
+2. 🎥 Video penjelasan kondisi kendala
 
-⚠️ Kirim foto sesuai permintaan!"""
+⚠️ Kirim foto dan video sesuai permintaan!"""
 
     MEDIA_RECEIVED = """✅ Media diterima ({media_count} file)!
 
@@ -268,18 +287,23 @@ class MenuKeyboards:
         return ReplyKeyboardMarkup(MenuKeyboards.MEDIA_OPTIONS, resize_keyboard=True)
 
 
-# Sheet configurations - Updated to match your requested structure
+# Sheet configurations - Updated to include video columns before created_at
 SHEET_CONFIGS = {
     "teknik": {
         "name": "Kendala Teknik",
         "columns": [
             "NIK", "NAMA", "SC", "STO", "Detail Kendala", "Tag Pelanggan",
             "Nama ODP", "ID Valins", "Jarak", "Jumlah Tiang", "CP RT/RW/Developer",
+            # Photo columns
             "Foto dengan Pelanggan/Foto Rumah Pelanggan",
             "Foto Rencana Pemasangan Tiang",
-            "Video Kondisi Rumah Pelanggan",
             "Bukti Sudah Menyerahkan File untuk Sitac",
             "Capture Lensa Nearest ODP dimana Masih dalam Range 250m",
+            # Video columns (before created_at)
+            "Video Kondisi Rumah Pelanggan",
+            "Video Penjelasan Kondisi Jaringan",
+            "Video Penjelasan Kondisi Area Pemasangan Tiang",
+            "Video Penjelasan Kondisi ODP dan Jarak",
             "created_at"
         ]
     },
@@ -289,8 +313,14 @@ SHEET_CONFIGS = {
             "NIK", "NAMA", "SC", "STO", "Detail Kendala",
             "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak",
             "No Indihome Aktif", "Eviden (Manja/Cancel)", "Tanggal (Manja)",
-            "Tanggal (Cancel)", "Alasan Cancel", "Eviden Modem/Jalur Kabel ke Pelanggan",
+            "Tanggal (Cancel)", "Alasan Cancel", 
+            # Photo columns
+            "Eviden Modem/Jalur Kabel ke Pelanggan",
             "Foto Bukti WA / Foto dengan Pelanggan",
+            # Video columns (before created_at)
+            "Video Penjelasan Kondisi Pelanggan Manja",
+            "Video Penjelasan Alasan Cancel Pelanggan",
+            "Video Proses Cabut Pasang Modem/Kabel",
             "created_at"
         ]
     },
@@ -298,7 +328,10 @@ SHEET_CONFIGS = {
         "name": "Kendala Lainnya",
         "columns": [
             "NIK", "NAMA", "SC", "STO", "Detail Kendala", "Tag Pelanggan",
-            "Foto dengan Pelanggan/Foto Rumah Pelanggan",
+            # Photo columns
+            "Foto Penjelasan Kondisi Kendala",
+            # Video columns (before created_at)
+            "Video Penjelasan Kondisi Kendala",
             "created_at"
         ]
     }
@@ -325,36 +358,57 @@ REQUIRED_FIELDS = {
     KendalaType.LAINNYA: ["NIK", "NAMA", "SC", "STO", "Tag Pelanggan", "Detail Kendala"]
 }
 
-# Define media fields for each kendala type with expected media types - Updated for new structure
+# Define media fields for each kendala type with expected media types - Updated with video inputs
 MEDIA_FIELDS_WITH_TYPES = {
     KendalaType.TAJ: [
+        # Photo fields first
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
-        ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan")
+        # Video fields after photos
+        ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
+        ("Video Penjelasan Kondisi Jaringan", "video", "🎥 Video penjelasan kondisi jaringan")
     ],
     KendalaType.TAT: [
+        # Photo fields first
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
         ("Foto Rencana Pemasangan Tiang", "photo", "📸 Foto rencana pemasangan tiang"),
         ("Bukti Sudah Menyerahkan File untuk Sitac", "photo", "📸 Bukti sudah menyerahkan file untuk sitac"),
-        ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan")
+        # Video fields after photos
+        ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
+        ("Video Penjelasan Kondisi Area Pemasangan Tiang", "video", "🎥 Video penjelasan kondisi area pemasangan tiang")
     ],
     KendalaType.ODP_FULL: [
+        # Photo fields first
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
-        ("Capture Lensa Nearest ODP dimana Masih dalam Range 250m", "photo", "📸 Capture lensa nearest ODP dimana masih dalam range 250m")
+        ("Capture Lensa Nearest ODP dimana Masih dalam Range 250m", "photo", "📸 Capture lensa nearest ODP dimana masih dalam range 250m"),
+        # Video fields after photos
+        ("Video Penjelasan Kondisi ODP dan Jarak", "video", "🎥 Video penjelasan kondisi ODP dan jarak")
     ],
     KendalaType.PELANGGAN_MANJA: [
+        # Photo fields first
         ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Manja (foto bukti)"),
-        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan")
+        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
+        # Video fields after photos
+        ("Video Penjelasan Kondisi Pelanggan Manja", "video", "🎥 Video penjelasan kondisi pelanggan manja")
     ],
     KendalaType.PELANGGAN_CANCEL: [
+        # Photo fields first
         ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Cancel (foto bukti)"),
-        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan")
+        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
+        # Video fields after photos
+        ("Video Penjelasan Alasan Cancel Pelanggan", "video", "🎥 Video penjelasan alasan cancel pelanggan")
     ],
     KendalaType.CABUT_PASANG: [
+        # Photo fields first
         ("Eviden Modem/Jalur Kabel ke Pelanggan", "photo", "📸 Eviden modem/jalur kabel ke pelanggan"),
-        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan")
+        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
+        # Video fields after photos
+        ("Video Proses Cabut Pasang Modem/Kabel", "video", "🎥 Video proses cabut pasang modem/kabel")
     ],
     KendalaType.LAINNYA: [
-        ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan")
+        # Photo fields first
+        ("Foto Penjelasan Kondisi Kendala", "photo", "📸 Foto penjelasan kondisi kendala"),
+        # Video fields after photos
+        ("Video Penjelasan Kondisi Kendala", "video", "🎥 Video penjelasan kondisi kendala")
     ]
 }
 
