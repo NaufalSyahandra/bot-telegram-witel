@@ -63,9 +63,9 @@ class BotHandlers:
             await self._handle_admin_removal(query, context, data)
 
     async def _handle_approval(self, query, context, data):
-        """Handle user approval with bidirectional notifications"""
+        """Handle user approval with bidirectional notifications and spreadsheet sync"""
         nik = data.replace("approve_", "")
-        result = user_manager.approve_registration(nik, query.from_user.id)
+        result = await user_manager.approve_registration(nik, query.from_user.id)  # Now async
         
         if result["success"]:
             user_data = result["user_data"]
@@ -99,7 +99,7 @@ class BotHandlers:
                 )
             
             await query.edit_message_text(
-                f"✅ Pendaftaran dengan NIK {nik} telah disetujui!\n"
+                f"✅ Pendaftaran dengan NIK {nik} telah disetujui dan disimpan ke spreadsheet!\n"
                 f"👤 User ID: {approved_user_id}\n"
                 f"📧 Username: @{username}",
                 reply_markup=None
@@ -223,7 +223,7 @@ class BotHandlers:
                         logger.error(f"Failed to notify admin {admin_nik} about owner action: {e}")
 
     async def _handle_user_removal(self, query, context, data):
-        """Handle user removal (owner and admin can do this)"""
+        """Handle user removal (owner and admin can do this) with async spreadsheet support"""
         chat_id = query.from_user.id
         
         # Both owner and admin can remove users
@@ -242,7 +242,7 @@ class BotHandlers:
         removed_user_id = user_data.get('user_id')
         username = user_data.get('username', 'N/A')
         
-        success = user_manager.remove_user(nik)
+        success = await user_manager.remove_user(nik)  # Now async
         
         if success:
             # Notify the removed user
@@ -251,7 +251,7 @@ class BotHandlers:
                     await context.bot.send_message(
                         chat_id=removed_user_id,
                         text=f"⚠️ Akun Anda telah dihapus dari sistem.\n\n"
-                             f"Untuk menggunakan bot kembali, silakan daftar ulang dengan mengirim /start"
+                            f"Untuk menggunakan bot kembali, silakan daftar ulang dengan mengirim /start"
                     )
                     logger.info(f"Notified removed user {removed_user_id}")
                 except Exception as e:
@@ -323,7 +323,7 @@ class BotHandlers:
                         logger.error(f"Failed to notify admin {admin_nik} about owner removal: {e}")
 
     async def _handle_admin_removal(self, query, context, data):
-        """Handle admin removal (owner only)"""
+        """Handle admin removal (owner only) with async spreadsheet support"""
         if not user_manager.is_owner(query.from_user.id):
             await query.edit_message_text("Hanya owner yang dapat menghapus admin.")
             return
@@ -335,7 +335,7 @@ class BotHandlers:
         admin_user_id = user_data.get('user_id') if user_data else None
         admin_username = user_data.get('username', 'N/A') if user_data else 'N/A'
         
-        success = user_manager.remove_admin(nik)
+        success = await user_manager.remove_admin(nik)  # Now async
         
         if success:
             # Notify the demoted admin
@@ -344,7 +344,7 @@ class BotHandlers:
                     await context.bot.send_message(
                         chat_id=admin_user_id,
                         text=f"⚠️ Status admin Anda telah dicabut.\n\n"
-                             f"Anda masih dapat menggunakan bot sebagai employee biasa.",
+                            f"Anda masih dapat menggunakan bot sebagai employee biasa.",
                         reply_markup=MenuKeyboards.main_menu()
                     )
                     logger.info(f"Notified demoted admin {admin_user_id}")
@@ -358,6 +358,7 @@ class BotHandlers:
             await query.edit_message_text(f"✅ Admin dengan NIK {nik} telah dihapus!")
         else:
             await query.edit_message_text(f"❌ Gagal menghapus admin dengan NIK {nik}.")
+
 
     async def _notify_other_admins_about_admin_removal(self, context, removed_admin_nik: str, admin_username: str, owner_nik: str):
         """Notify other admins about admin removal by owner"""
@@ -864,7 +865,7 @@ class BotHandlers:
         keyboard = InlineKeyboardMarkup(buttons)
         
         await update.message.reply_text(
-            "➖ **Hapus Admin**\n\nPilih admin yang akan dihapus:",
+            "➖ **Hapus Admin**\n\nPilih admin yang aakan dihapus:",
             parse_mode='Markdown',
             reply_markup=keyboard
         )
@@ -906,7 +907,7 @@ class BotHandlers:
         )
 
     async def handle_admin_nik_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle admin NIK input from owner"""
+        """Handle admin NIK input from owner with async spreadsheet support"""
         chat_id = update.effective_chat.id
         text = update.message.text.strip()
         
@@ -919,12 +920,12 @@ class BotHandlers:
             return True
         
         # Try to add admin
-        success = user_manager.add_admin(text)
+        success = await user_manager.add_admin(text)  # Now async
         user_manager.set_user_state(chat_id, UserState.IDLE)
         
         if success:
             await update.message.reply_text(
-                Messages.ADMIN_ADDED.format(nik=text),
+                Messages.ADMIN_ADDED.format(nik=text) + "\n\n📊 Data admin telah disinkronkan ke spreadsheet.",
                 reply_markup=MenuKeyboards.owner_menu()
             )
             

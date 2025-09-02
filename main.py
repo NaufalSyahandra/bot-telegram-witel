@@ -9,6 +9,7 @@ from telegram.ext import (
 
 from config import Config
 from handlers.handlers import bot_handlers
+from user_state_manager import user_manager
 
 # Logging configuration
 logging.basicConfig(
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramBot:
-    """Main Telegram Bot class with enhanced user management and re-registration support"""
+    """Main Telegram Bot class with enhanced user management and spreadsheet integration"""
 
     def __init__(self):
         self.app = None
@@ -32,7 +33,7 @@ class TelegramBot:
         Config.validate_config()
         
         self.app = Application.builder().token(Config.BOT_TOKEN).build()
-        logger.info("Telegram application initialized with enhanced user management")
+        logger.info("Telegram application initialized with enhanced user management and spreadsheet integration")
 
     def _register_handlers(self):
         """Register all bot handlers with enhanced user management and re-registration support"""
@@ -73,21 +74,46 @@ class TelegramBot:
 
         logger.info("All handlers registered successfully with enhanced user management and re-registration support")
 
-    def run(self):
-        """Start the bot"""
+    async def _initialize_bot_data(self):
+        """Initialize bot data from spreadsheet on startup"""
         try:
-            logger.info("Starting Enhanced Telegram Bot...")
+            logger.info("Initializing bot data from spreadsheet...")
+            
+            # Load user data from Teknisi sheet
+            await user_manager.initialize_from_spreadsheet()
+            
+            logger.info("Bot data initialization completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize bot data: {e}")
+            logger.warning("Bot will continue with empty user data - users will need to register")
+
+    async def _post_init(self, application):
+        """Post-initialization hook called by Application"""
+        await self._initialize_bot_data()
+
+    def run(self):
+        """Start the bot with data initialization"""
+        try:
+            logger.info("Starting Enhanced Telegram Bot with Spreadsheet Integration...")
             logger.info(f"Owner User ID: {Config.OWNER_USER_ID}")
             logger.info("Features enabled:")
             logger.info("- User registration with NIK validation (6-8 digits)")
             logger.info("- Admin and Owner role management")
-            logger.info("- Re-registration after rejection (no processed_registrations tracking)")
-            logger.info("- Cross-notification for approvals/rejections to owner")
+            logger.info("- Data persistence in Google Sheets (Teknisi sheet)")
+            logger.info("- Re-registration after rejection")
+            logger.info("- Cross-notification for approvals/rejections")
             logger.info("- User removal by both owner and admin")
             logger.info("- Admin removal by owner")
             logger.info("- Inline approval/rejection buttons")
-            logger.info("- Owner notifications when admin approves/rejects/removes users")
+            logger.info("- Auto-load user data from spreadsheet on startup")
+            
+            # Add post_init callback for data initialization
+            self.app.post_init = self._post_init
+            
+            logger.info("Starting bot polling...")
             self.app.run_polling(allowed_updates=Update.ALL_TYPES)
+            
         except Exception as e:
             logger.error(f"Failed to start bot: {e}")
             raise

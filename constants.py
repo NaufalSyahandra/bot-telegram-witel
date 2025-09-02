@@ -409,6 +409,7 @@ class MenuKeyboards:
 
 
 # Sheet configurations remain the same but NIK is now auto-populated
+# Tambahkan konfigurasi sheet "Teknisi" ke SHEET_CONFIGS
 SHEET_CONFIGS = {
     "teknik": {
         "name": "Kendala Teknik",
@@ -447,10 +448,11 @@ SHEET_CONFIGS = {
             "created_at"
         ]
     },
-    "users": {
-        "name": "Registered Users",
+    # TAMBAHAN: Konfigurasi sheet untuk data user/teknisi
+    "teknisi": {
+        "name": "Teknisi",
         "columns": [
-            "NIK", "user_id", "username", "role", "status", "approved_by", "approved_at", "created_at"
+            "NIK", "User_ID", "Username", "Role", "Status", "Approved_By", "Approved_At", "Created_At"
         ]
     }
 }

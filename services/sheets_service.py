@@ -6,7 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from google.auth.transport.requests import AuthorizedSession
 from config import Config
-from constants import get_sheet_config, KendalaType
+from constants import get_sheet_config, KendalaType, SHEET_CONFIGS
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,8 @@ class SheetsService:
             required_sheets = [
                 ("Kendala Teknik", get_sheet_config(KendalaType.TAJ)["columns"]),
                 ("Kendala Pelanggan", get_sheet_config(KendalaType.PELANGGAN_MANJA)["columns"]),
-                ("Kendala Lainnya", get_sheet_config(KendalaType.LAINNYA)["columns"])
+                ("Kendala Lainnya", get_sheet_config(KendalaType.LAINNYA)["columns"]),
+                ("Teknisi", SHEET_CONFIGS["teknisi"]["columns"])  # CRITICAL: Teknisi sheet
             ]
 
             # Get existing sheets
@@ -229,6 +230,79 @@ class SheetsService:
         except Exception as e:
             logger.error(f"Error updating cell in {sheet_name}: {e}")
             raise
+
+    @run_in_executor
+    def get_all_teknisi_data(self) -> List[Dict]:
+        """Get all teknisi data from Teknisi sheet"""
+        try:
+            worksheet = self._get_worksheet("Teknisi")
+            all_values = worksheet.get_all_records()
+            
+            # Convert to list of dictionaries for easier processing
+            teknisi_list = []
+            for record in all_values:
+                if record.get('NIK'):  # Only include records with NIK
+                    teknisi_list.append({
+                        'nik': str(record.get('NIK', '')),
+                        'user_id': int(record.get('User_ID', 0)) if record.get('User_ID') else None,
+                        'username': record.get('Username', ''),
+                        'role': record.get('Role', 'employee').lower(),
+                        'status': record.get('Status', 'approved').lower(),
+                        'approved_by': record.get('Approved_By', ''),
+                        'approved_at': record.get('Approved_At', ''),
+                        'created_at': record.get('Created_At', '')
+                    })
+            
+            logger.info(f"Retrieved {len(teknisi_list)} teknisi records from sheet")
+            return teknisi_list
+            
+        except Exception as e:
+            logger.error(f"Error getting teknisi data: {e}")
+            return []
+
+    @run_in_executor
+    def update_teknisi_role(self, nik: str, new_role: str) -> bool:
+        """Update teknisi role in Teknisi sheet"""
+        try:
+            worksheet = self._get_worksheet("Teknisi")
+            
+            # Find the row with matching NIK
+            all_records = worksheet.get_all_records()
+            for i, record in enumerate(all_records, start=2):  # Start from row 2 (skip header)
+                if str(record.get('NIK', '')) == nik:
+                    # Update role column (column D = index 4)
+                    worksheet.update_cell(i, 4, new_role)
+                    logger.info(f"Updated role for NIK {nik} to {new_role}")
+                    return True
+            
+            logger.warning(f"NIK {nik} not found in Teknisi sheet for role update")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error updating teknisi role for NIK {nik}: {e}")
+            return False
+
+    @run_in_executor
+    def delete_teknisi_data(self, nik: str) -> bool:
+        """Delete teknisi data from Teknisi sheet"""
+        try:
+            worksheet = self._get_worksheet("Teknisi")
+            
+            # Find the row with matching NIK
+            all_records = worksheet.get_all_records()
+            for i, record in enumerate(all_records, start=2):  # Start from row 2 (skip header)
+                if str(record.get('NIK', '')) == nik:
+                    # Delete the entire row
+                    worksheet.delete_rows(i)
+                    logger.info(f"Deleted teknisi data for NIK {nik} from row {i}")
+                    return True
+            
+            logger.warning(f"NIK {nik} not found in Teknisi sheet for deletion")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error deleting teknisi data for NIK {nik}: {e}")
+            return False
 
     def get_spreadsheet_info(self) -> dict:
         """Get basic spreadsheet information"""
