@@ -4,12 +4,17 @@ from telegram import ReplyKeyboardMarkup
 
 class UserState(Enum):
     """User state enumeration"""
+    UNREGISTERED = "unregistered"
+    PENDING_APPROVAL = "pending_approval"
+    REJECTED = "rejected"
     IDLE = "idle"
     WAITING_INPUT = "waiting_input"
     KENDALA_MENU = "kendala_menu"
     TEKNIK_SUBMENU = "teknik_submenu"
     PELANGGAN_SUBMENU = "pelanggan_submenu"
     WAITING_MEDIA = "waiting_media"
+    ADMIN_MENU = "admin_menu"
+    WAITING_ADMIN_NIK = "waiting_admin_nik"
 
 
 class KendalaType(Enum):
@@ -23,21 +28,128 @@ class KendalaType(Enum):
     LAINNYA = "lainnya"
 
 
+class UserRole(Enum):
+    """User role enumeration"""
+    OWNER = "owner"
+    ADMIN = "admin"
+    EMPLOYEE = "employee"
+
+
 class Messages:
-    """Static messages for bot responses"""
+    """Static messages for bot responses with enhanced user management"""
 
-    WELCOME = """👋 Halo! Selamat datang di Bot Test.
+    WELCOME_UNREGISTERED = """👋 Selamat datang di Bot Test!
 
+🔐 Untuk menggunakan bot ini, Anda harus mendaftar terlebih dahulu.
+
+📝 Silakan kirim NIK Anda (6-8 digit) untuk pendaftaran."""
+
+    REGISTRATION_SUCCESS = """✅ Pendaftaran berhasil!
+
+⏳ NIK Anda sedang dalam proses verifikasi oleh admin.
+Silakan tunggu konfirmasi untuk dapat mengakses fitur bot."""
+
+    REGISTRATION_PENDING = """⏳ NIK Anda masih dalam proses verifikasi.
+
+Silakan tunggu konfirmasi dari admin."""
+
+    REGISTRATION_REJECTED = """❌ Pendaftaran Anda ditolak.
+
+Silakan hubungi admin jika Anda merasa ini adalah kesalahan."""
+
+    REGISTRATION_REJECTED_CAN_RETRY = """❌ Pendaftaran sebelumnya ditolak.
+
+🔄 Anda dapat mendaftar ulang dengan mengirim NIK yang valid (6-8 digit).
+📝 Pastikan NIK yang Anda kirim adalah NIK yang benar."""
+
+    WELCOME_APPROVED = """👋 Selamat datang kembali!
+
+✅ Akun Anda sudah diverifikasi.
 📌 Pilih jenis kendala di bawah ini:"""
+
+    ADMIN_WELCOME = """🔧 Menu Admin
+
+Pilih aksi yang ingin dilakukan:"""
+
+    OWNER_WELCOME = """👑 Menu Owner
+
+Pilih aksi yang ingin dilakukan:"""
+
+    INVALID_NIK = """❌ NIK tidak valid!
+
+NIK harus berupa 6-8 digit angka. Silakan coba lagi."""
+
+    NIK_ALREADY_REGISTERED = """⚠️ NIK sudah terdaftar!
+
+Jika Anda lupa status pendaftaran, silakan hubungi admin."""
+
+    ADMIN_APPROVAL_NOTIFICATION = """🔔 Pendaftaran Baru
+
+NIK: {nik}
+User ID: {user_id}
+Username: @{username}
+
+Pilih tindakan untuk pendaftaran ini:"""
+
+    EMPLOYEE_APPROVED = """✅ Pendaftaran Disetujui!
+
+NIK {nik} telah disetujui. Sekarang Anda dapat mengakses bot."""
+
+    EMPLOYEE_REJECTED = """❌ Pendaftaran Ditolak!
+
+NIK {nik} tidak dapat mengakses bot.
+🔄 Anda dapat mendaftar ulang kapan saja dengan mengirim /start."""
+
+    # New notification messages for owner
+    OWNER_APPROVAL_NOTIFICATION = """📋 Notifikasi Persetujuan
+
+✅ User dengan NIK {nik} telah DISETUJUI oleh {approver_role} {approver_nik}
+
+👤 Detail User:
+• NIK: {nik}
+• User ID: {user_id}
+• Username: @{username}
+• Disetujui oleh: {approver_role} ({approver_nik})"""
+
+    OWNER_REJECTION_NOTIFICATION = """📋 Notifikasi Penolakan
+
+❌ User dengan NIK {nik} telah DITOLAK oleh {rejector_role} {rejector_nik}
+
+👤 Detail User:
+• NIK: {nik}
+• User ID: {user_id}
+• Username: @{username}
+• Ditolak oleh: {rejector_role} ({rejector_nik})"""
+
+    ADD_ADMIN_REQUEST = """➕ Tambah Admin Baru
+
+Silakan kirim NIK admin yang akan ditambahkan (6-8 digit):
+
+⚠️ Pastikan NIK sudah terdaftar sebagai user terlebih dahulu!"""
+
+    ADMIN_ADDED = """✅ Admin berhasil ditambahkan!
+
+NIK {nik} sekarang memiliki akses admin.
+🔔 User tersebut akan menerima notifikasi."""
+
+    ADMIN_ADD_ERROR = """❌ Gagal menambahkan admin!
+
+Pastikan:
+• NIK valid (6-8 digit)
+• NIK sudah terdaftar sebagai user
+• NIK belum menjadi admin"""
+
+    UNAUTHORIZED = """🚫 Anda tidak memiliki akses untuk fitur ini.
+
+Silakan daftar terlebih dahulu dengan mengirim NIK Anda."""
 
     KENDALA_MENU = """📋 Pilih jenis kendala:"""
     TEKNIK_SUBMENU = """🔧 Pilih kendala teknik:"""
     PELANGGAN_SUBMENU = """👤 Pilih kendala pelanggan:"""
 
-    # Format TAJ
+    # Format TAJ - NIK removed from input
     TAJ_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NIK: 3201234567890123
 NAMA: John Doe
 SC: 12345
 STO: ABC
@@ -46,10 +158,9 @@ Detail Kendala: Tidak ada Jaringan (TAJ)
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
 
-    # Format TAT
+    # Format TAT - NIK removed from input
     TAT_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NIK: 3201234567890123
 NAMA: John Doe
 SC: 12345
 STO: ABC
@@ -63,10 +174,9 @@ CP RT/RW/Developer: Pak RT 081234567890
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
 
-    # Format ODP Full
+    # Format ODP Full - NIK removed from input
     ODP_FULL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NIK: 3201234567890123
 NAMA: John Doe
 SC: 12345
 STO: ABC
@@ -78,10 +188,9 @@ Detail Kendala: ODP Full
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
 
-    # Format Pelanggan Manja - REMOVED eviden from text input
+    # Format Pelanggan Manja - NIK removed from input
     PELANGGAN_MANJA_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NIK: 3201234567890123
 NAMA: John Doe
 SC: 12345
 STO: ABC
@@ -95,10 +204,9 @@ Tanggal (Manja): 2024-01-15
 ⚠️ Pastikan semua field diisi dengan benar!
 📸 Eviden akan diupload sebagai foto di langkah selanjutnya."""
 
-    # Format Pelanggan Cancel - REMOVED eviden from text input
+    # Format Pelanggan Cancel - NIK removed from input
     PELANGGAN_CANCEL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NIK: 3201234567890123
 NAMA: John Doe
 SC: 12345
 STO: ABC
@@ -109,10 +217,9 @@ Tanggal (Cancel): 2024-01-15
 ⚠️ Pastikan semua field diisi dengan benar!
 📸 Eviden akan diupload sebagai foto di langkah selanjutnya."""
 
-    # Format Cabut Pasang - REMOVED eviden from text input
+    # Format Cabut Pasang - NIK removed from input
     CABUT_PASANG_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NIK: 3201234567890123
 NAMA: John Doe
 SC: 12345
 STO: ABC
@@ -122,10 +229,9 @@ Detail Kendala: Cabut Pasang
 ⚠️ Pastikan semua field diisi dengan benar!
 📸 Eviden modem/jalur kabel akan diupload sebagai foto di langkah selanjutnya."""
 
-    # Format Lainnya
+    # Format Lainnya - NIK removed from input
     GENERAL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NIK: 3201234567890123
 NAMA: John Doe
 SC: 12345
 STO: ABC
@@ -134,7 +240,7 @@ Detail Kendala: {kendala_type}
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
 
-    # Media prompts for different kendala types with step-by-step
+    # Media prompts remain the same
     TAJ_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi secara berurutan!
 
 🔸 **Langkah {step} dari {total}**: {current_requirement}
@@ -197,7 +303,6 @@ Detail Kendala: {kendala_type}
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
-    # Updated LAINNYA media prompt to match the template structure
     LAINNYA_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi secara berurutan!
 
 🔸 **Langkah {step} dari {total}**: {current_requirement}
@@ -208,7 +313,6 @@ Detail Kendala: {kendala_type}
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
-    # Legacy general media prompt (kept for backward compatibility)
     GENERAL_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi!
 
 🔸 **Langkah {step} dari {total}**: {current_requirement}
@@ -232,7 +336,7 @@ Detail Kendala: {kendala_type}
 
 
 class MenuKeyboards:
-    """Static keyboard layouts"""
+    """Static keyboard layouts with enhanced user management"""
 
     MAIN = [
         ["🔧 Kendala Teknik", "👤 Kendala Pelanggan"],
@@ -250,6 +354,21 @@ class MenuKeyboards:
         ["😤 Pelanggan Manja"],
         ["❌ Pelanggan Cancel"],
         ["🔄 Cabut Pasang"],
+        ["🏠 Menu Utama"]
+    ]
+
+    # Enhanced admin menu with user removal capability
+    ADMIN = [
+        ["📋 Lihat Pendaftar"],
+        ["🗑️ Hapus User"],
+        ["🏠 Menu Utama"]
+    ]
+
+    # Enhanced owner menu with user management
+    OWNER = [
+        ["📋 Lihat Pendaftar", "➕ Tambah Admin"],
+        ["👥 Lihat Admin", "🗂️ Kelola User"],
+        ["➖ Hapus Admin", "🗑️ Hapus User"],
         ["🏠 Menu Utama"]
     ]
 
@@ -273,6 +392,14 @@ class MenuKeyboards:
         return ReplyKeyboardMarkup(MenuKeyboards.PELANGGAN, resize_keyboard=True, one_time_keyboard=False)
 
     @staticmethod
+    def admin_menu():
+        return ReplyKeyboardMarkup(MenuKeyboards.ADMIN, resize_keyboard=True, one_time_keyboard=False)
+
+    @staticmethod
+    def owner_menu():
+        return ReplyKeyboardMarkup(MenuKeyboards.OWNER, resize_keyboard=True, one_time_keyboard=False)
+
+    @staticmethod
     def back_menu():
         return ReplyKeyboardMarkup(MenuKeyboards.BACK, resize_keyboard=True)
 
@@ -281,7 +408,8 @@ class MenuKeyboards:
         return ReplyKeyboardMarkup(MenuKeyboards.MEDIA_OPTIONS, resize_keyboard=True)
 
 
-# Sheet configurations - Updated to include video columns before created_at
+# Sheet configurations remain the same but NIK is now auto-populated
+# Tambahkan konfigurasi sheet "Teknisi" ke SHEET_CONFIGS
 SHEET_CONFIGS = {
     "teknik": {
         "name": "Kendala Teknik",
@@ -319,6 +447,13 @@ SHEET_CONFIGS = {
             "Video Penjelasan Kondisi Kendala",
             "created_at"
         ]
+    },
+    # TAMBAHAN: Konfigurasi sheet untuk data user/teknisi
+    "teknisi": {
+        "name": "Teknisi",
+        "columns": [
+            "NIK", "User_ID", "Username", "Role", "Status", "Approved_By", "Approved_At", "Created_At"
+        ]
     }
 }
 
@@ -332,57 +467,47 @@ def get_sheet_config(kendala_type: KendalaType):
     else:  # LAINNYA
         return SHEET_CONFIGS["lainnya"]
 
-# Define which fields are required for each kendala type - REMOVED eviden text fields
+# Define which fields are required for each kendala type - NIK removed from required fields
 REQUIRED_FIELDS = {
-    KendalaType.TAJ: ["NIK", "NAMA", "SC", "STO", "Tag Pelanggan", "Detail Kendala"],
-    KendalaType.TAT: ["NIK", "NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jumlah Tiang", "Jarak", "Detail Kendala", "CP RT/RW/Developer"],
-    KendalaType.ODP_FULL: ["NIK", "NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak", "Detail Kendala"],
-    KendalaType.PELANGGAN_MANJA: ["NIK", "NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak", "Detail Kendala", "Tanggal (Manja)"],
-    KendalaType.PELANGGAN_CANCEL: ["NIK", "NAMA", "SC", "STO", "Alasan Cancel", "Detail Kendala", "Tanggal (Cancel)"],
-    KendalaType.CABUT_PASANG: ["NIK", "NAMA", "SC", "STO", "No Indihome Aktif", "Detail Kendala"],
-    KendalaType.LAINNYA: ["NIK", "NAMA", "SC", "STO", "Tag Pelanggan", "Detail Kendala"]
+    KendalaType.TAJ: ["NAMA", "SC", "STO", "Tag Pelanggan", "Detail Kendala"],
+    KendalaType.TAT: ["NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jumlah Tiang", "Jarak", "Detail Kendala", "CP RT/RW/Developer"],
+    KendalaType.ODP_FULL: ["NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak", "Detail Kendala"],
+    KendalaType.PELANGGAN_MANJA: ["NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak", "Detail Kendala", "Tanggal (Manja)"],
+    KendalaType.PELANGGAN_CANCEL: ["NAMA", "SC", "STO", "Alasan Cancel", "Detail Kendala", "Tanggal (Cancel)"],
+    KendalaType.CABUT_PASANG: ["NAMA", "SC", "STO", "No Indihome Aktif", "Detail Kendala"],
+    KendalaType.LAINNYA: ["NAMA", "SC", "STO", "Tag Pelanggan", "Detail Kendala"]
 }
 
-# Define media fields for each kendala type with expected media types - Updated with video inputs
+# Media fields remain the same
 MEDIA_FIELDS_WITH_TYPES = {
     KendalaType.TAJ: [
-        # Photo fields first
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
-        # Video fields after photos
         ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
     ],
     KendalaType.TAT: [
-        # Photo fields first
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
         ("Foto Rencana Pemasangan Tiang", "photo", "📸 Foto rencana pemasangan tiang"),
         ("Bukti Sudah Menyerahkan File untuk Sitac", "photo", "📸 Bukti sudah menyerahkan file untuk sitac"),
-        # Video fields after photos
         ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
     ],
     KendalaType.ODP_FULL: [
-        # Photo fields first
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
         ("Capture Lensa Nearest ODP dimana Masih dalam Range 250m", "photo", "📸 Capture lensa nearest ODP dimana masih dalam range 250m"),
     ],
     KendalaType.PELANGGAN_MANJA: [
-        # Photo fields first
         ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Manja (foto bukti)"),
         ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
     ],
     KendalaType.PELANGGAN_CANCEL: [
-        # Photo fields first
         ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Cancel (foto bukti)"),
         ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
     ],
     KendalaType.CABUT_PASANG: [
-        # Photo fields first
         ("Eviden Modem/Jalur Kabel ke Pelanggan", "photo", "📸 Eviden modem/jalur kabel ke pelanggan"),
         ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
     ],
     KendalaType.LAINNYA: [
-        # Photo fields first
         ("Foto Penjelasan Kondisi Kendala", "photo", "📸 Foto penjelasan kondisi kendala"),
-        # Video fields after photos
         ("Video Penjelasan Kondisi Kendala", "video", "🎥 Video penjelasan kondisi kendala")
     ]
 }
