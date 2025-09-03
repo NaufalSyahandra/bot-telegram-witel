@@ -2,6 +2,7 @@ import re
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from constants import (
     KendalaType,
     REQUIRED_FIELDS,
@@ -18,10 +19,10 @@ class DataProcessor:
 
     @staticmethod
     def parse_input(text: str, kendala_type: KendalaType) -> Dict[str, Optional[str]]:
-        """Parse input text and extract field values based on kendala type"""
+        """Parse input text and extract field values based on kendala type (NIK excluded)"""
         data = {}
 
-        # Get required fields for this kendala type
+        # Get required fields for this kendala type (NIK will be added separately)
         required_fields = REQUIRED_FIELDS[kendala_type]
 
         # Parse each required field
@@ -31,28 +32,23 @@ class DataProcessor:
             data[field] = match.group(1).strip() if match else None
 
         # Add created_at timestamp
-        data['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data['created_at'] = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%Y-%m-%d %H:%M:%S")
 
         logger.info(f"Parsed data for {kendala_type.value}: {data}")
         return data
 
     @staticmethod
     def validate_input(data: Dict[str, Optional[str]], kendala_type: KendalaType) -> List[str]:
-        """Validate parsed input data"""
+        """Validate parsed input data (NIK validation removed from user input)"""
         errors = []
 
-        # Get required fields for this kendala type
+        # Get required fields for this kendala type (NIK will be validated separately)
         required_fields = REQUIRED_FIELDS[kendala_type]
 
-        # Check for missing required fields
+        # Check for missing required fields (excluding NIK)
         missing = [k for k in required_fields if k not in data or not data[k] or not data[k].strip()]
         if missing:
             errors.append(f"Field kosong: {', '.join(missing)}")
-
-        # Validate NIK format (should be 16 digits)
-        nik = data.get("NIK", "")
-        if nik and (not nik.isdigit() or len(nik) != 16):
-            errors.append("NIK harus berupa 16 digit angka")
 
         # Validate NAMA (should not be empty and contain only letters and spaces)
         nama = data.get("NAMA", "")
@@ -92,7 +88,7 @@ class DataProcessor:
 
     @staticmethod
     def prepare_sheet_data(data: Dict[str, str], kendala_type: KendalaType) -> List[str]:
-        """Prepare data for spreadsheet insertion with NAN for missing fields"""
+        """Prepare data for spreadsheet insertion with NAN for missing fields (NIK already included)"""
         # Get the appropriate sheet config based on kendala type
         sheet_config = get_sheet_config(kendala_type)
         columns = sheet_config["columns"]
@@ -130,7 +126,7 @@ class DataProcessor:
 
     @staticmethod
     def get_input_format(kendala_type: KendalaType) -> str:
-        """Get appropriate input format based on kendala type"""
+        """Get appropriate input format based on kendala type (NIK removed from all formats)"""
         if kendala_type == KendalaType.TAJ:
             return Messages.TAJ_FORMAT
         elif kendala_type == KendalaType.TAT:
@@ -197,7 +193,7 @@ class DataProcessor:
                 current_requirement=description
             )
         else:
-            return Messages.GENERAL_MEDIA_PROMPT.format(
+            return Messages.LAINNYA_MEDIA_PROMPT.format(
                 step=step + 1,
                 total=total_steps,
                 current_requirement=description
