@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-import cloudinary
 
 # Load environment variables
 load_dotenv()
@@ -16,9 +15,9 @@ class Config:
         required_vars = [
             "BOT_TOKEN",
             "SPREADSHEET_ID",
-            "CLOUDINARY_CLOUD_NAME",
-            "CLOUDINARY_API_KEY",
-            "CLOUDINARY_API_SECRET"
+            "MINIO_ENDPOINT",
+            "MINIO_ACCESS_KEY",
+            "MINIO_SECRET_KEY"
         ]
         missing = [var for var in required_vars if not os.getenv(var)]
         if missing:
@@ -29,8 +28,6 @@ class Config:
 
     # Google Sheets Configuration
     SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
-    # Note: Individual sheet names are now managed by the constants.py file
-    # Default sheets: "Kendala Teknik", "Kendala Pelanggan", "Kendala Lainnya"
     SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_FILE", "config/service_account.json")
 
     # Rate Limiting
@@ -39,33 +36,30 @@ class Config:
     # Session Management
     SESSION_CLEANUP_HOURS = int(os.getenv("SESSION_CLEANUP_HOURS", "24"))
 
-    # Cloudinary Configuration
-    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
-    CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
-    CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+    # MinIO Configuration
+    MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+    MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+    MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin123")
+    MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "telegram-bot-media")
+    MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+
+    # NEW: Separate public URL for external access
+    MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", "localhost:9000")
+    MINIO_PUBLIC_URL = os.getenv("MINIO_PUBLIC_URL")  # Optional: full public base URL
 
     # Logging Configuration
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    
+
     # Media Configuration
     MAX_MEDIA_SIZE_MB = int(os.getenv("MAX_MEDIA_SIZE_MB", "20"))
     ALLOWED_MEDIA_TYPES = os.getenv("ALLOWED_MEDIA_TYPES", "photo,video").split(",")
-
-    @classmethod
-    def setup_cloudinary(cls):
-        """Setup Cloudinary configuration"""
-        cloudinary.config(
-            cloud_name=cls.CLOUDINARY_CLOUD_NAME,
-            api_key=cls.CLOUDINARY_API_KEY,
-            api_secret=cls.CLOUDINARY_API_SECRET
-        )
 
     @classmethod
     def get_sheet_names(cls):
         """Get all sheet names that will be used"""
         return [
             "Kendala Teknik",
-            "Kendala Pelanggan", 
+            "Kendala Pelanggan",
             "Kendala Lainnya"
         ]
 
@@ -80,7 +74,17 @@ class Config:
         import re
         return bool(re.match(r'^[a-zA-Z\s]+$', name.strip()))
 
+    @classmethod
+    def get_minio_public_url(cls, object_name: str) -> str:
+        """Generate public URL for MinIO object - FIXED for external access"""
+        if cls.MINIO_PUBLIC_URL:
+            # Use explicit public URL if provided
+            return f"{cls.MINIO_PUBLIC_URL}/{cls.MINIO_BUCKET_NAME}/{object_name}"
+        else:
+            # Use public endpoint for external access
+            protocol = "https" if cls.MINIO_SECURE else "http"
+            return f"{protocol}://{cls.MINIO_PUBLIC_ENDPOINT}/{cls.MINIO_BUCKET_NAME}/{object_name}"
+
 
 # Validate environment on import
 Config.validate_env()
-Config.setup_cloudinary()

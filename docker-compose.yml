@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - bot-network
+
+  telegram-bot:
+    build: .
+    container_name: telegram-bot
+    depends_on:
+      - minio
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - SPREADSHEET_ID=${SPREADSHEET_ID}
+      - SERVICE_ACCOUNT_FILE=config/service_account.json
+      - RATE_LIMIT_SECONDS=${RATE_LIMIT_SECONDS:-2}
+      # Internal MinIO endpoint for container-to-container communication
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
+      - MINIO_SECURE=${MINIO_SECURE}
+      # External MinIO endpoint for public URLs
+      - MINIO_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT}
+      # Alternative: Use full public URL base (uncomment if you have a domain)
+      # - MINIO_PUBLIC_URL=https://yourdomain.com/minio
+    volumes:
+      - ./config:/app/config:ro
+    restart: unless-stopped
+    networks:
+      - bot-network
+
+volumes:
+  minio_data:
+
+networks:
+  bot-network:
+    driver: bridge

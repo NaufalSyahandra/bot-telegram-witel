@@ -7,5 +7,8 @@ gspread>=5.0.0
 google-oauth2-tool>=0.0.3
 google-auth>=2.0.0
 
-# Media upload
-cloudinary>=1.30.0
+# Media upload - MinIO
+minio>=7.0.0
+
+# Additional utilities
+requests>=2.28.0
