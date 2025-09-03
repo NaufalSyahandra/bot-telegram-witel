@@ -568,10 +568,20 @@ class BotHandlers:
                 )
                 return
 
-            # Upload media
-            media_url = await media_service.download_and_upload_telegram_media(
-                context.bot, file_obj, resource_type
-            )
+            # Upload media dengan better error handling
+            try:
+                await update.message.reply_text("⏳ Sedang mengunduh dan menyimpan media...")
+                media_url = await media_service.download_and_upload_telegram_media(
+                    context.bot, file_obj, resource_type
+                )
+            except Exception as upload_error:
+                logger.error(f"Media upload failed for chat_id {chat_id}: {upload_error}")
+                await update.message.reply_text(
+                    "❌ Gagal mengunduh media. Kemungkinan file terlalu besar atau koneksi bermasalah.\n\n"
+                    "Silakan coba lagi dengan file yang lebih kecil atau tunggu beberapa saat.",
+                    reply_markup=MenuKeyboards.media_menu()
+                )
+                return
 
             # Add media URL to the correct field for current step
             user_manager.add_user_media_url(chat_id, field_name, media_url)
