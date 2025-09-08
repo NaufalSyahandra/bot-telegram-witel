@@ -51,23 +51,24 @@ class DataProcessor:
             errors.append(f"Field kosong: {', '.join(missing)}")
 
         # Validate NAMA (should not be empty and contain only letters and spaces)
-        nama = data.get("NAMA", "")
+        nama = data.get("Nama Pelanggan", "")
         if nama and not re.match(r'^[a-zA-Z\s]+$', nama.strip()):
-            errors.append("NAMA hanya boleh berisi huruf dan spasi")
+            errors.append("Nama Pelanggan hanya boleh berisi huruf dan spasi")
 
         # Validate SC format (should be numeric)
         sc = data.get("SC", "")
         if sc and not sc.isdigit():
             errors.append("SC harus berupa angka")
 
-        # Validate distance format (for TAT, ODP_FULL, and PELANGGAN_MANJA)
-        if kendala_type in [KendalaType.TAT, KendalaType.ODP_FULL, KendalaType.PELANGGAN_MANJA]:
-            jarak = data.get("Jarak", "")
+        # Validate distance format (for TAT types, ODP_FULL, and PELANGGAN_MANJA)
+        if kendala_type in [KendalaType.TAT_BELUM_ACC, KendalaType.TAT_SUDAH_ACC, KendalaType.ODP_FULL,
+                            KendalaType.PELANGGAN_MANJA]:
+            jarak = data.get("Jarak Real", "")
             if jarak and not re.match(r'^\d+\s*m$', jarak.strip(), re.IGNORECASE):
-                errors.append("Jarak harus berformat angka + 'm' (contoh: 20m)")
+                errors.append("Jarak Real harus berformat angka + 'm' (contoh: 20m)")
 
-        # Validate Jumlah Tiang format (for TAT)
-        if kendala_type == KendalaType.TAT:
+        # Validate Jumlah Tiang format (for both TAT types)
+        if kendala_type in [KendalaType.TAT_BELUM_ACC, KendalaType.TAT_SUDAH_ACC]:
             jumlah_tiang = data.get("Jumlah Tiang", "")
             if jumlah_tiang and not jumlah_tiang.isdigit():
                 errors.append("Jumlah Tiang harus berupa angka")
@@ -92,7 +93,7 @@ class DataProcessor:
         # Get the appropriate sheet config based on kendala type
         sheet_config = get_sheet_config(kendala_type)
         columns = sheet_config["columns"]
-        
+
         row_data = []
 
         for column in columns:
@@ -129,8 +130,10 @@ class DataProcessor:
         """Get appropriate input format based on kendala type (NIK removed from all formats)"""
         if kendala_type == KendalaType.TAJ:
             return Messages.TAJ_FORMAT
-        elif kendala_type == KendalaType.TAT:
-            return Messages.TAT_FORMAT
+        elif kendala_type == KendalaType.TAT_BELUM_ACC:
+            return Messages.TAT_BELUM_ACC_FORMAT
+        elif kendala_type == KendalaType.TAT_SUDAH_ACC:  # NEW: TAT Sudah ACC format
+            return Messages.TAT_SUDAH_ACC_FORMAT
         elif kendala_type == KendalaType.ODP_FULL:
             return Messages.ODP_FULL_FORMAT
         elif kendala_type == KendalaType.PELANGGAN_MANJA:
@@ -162,8 +165,14 @@ class DataProcessor:
                 total=total_steps,
                 current_requirement=description
             )
-        elif kendala_type == KendalaType.TAT:
-            return Messages.TAT_MEDIA_PROMPT.format(
+        elif kendala_type == KendalaType.TAT_BELUM_ACC:
+            return Messages.TAT_BELUM_ACC_MEDIA_PROMPT.format(
+                step=step + 1,
+                total=total_steps,
+                current_requirement=description
+            )
+        elif kendala_type == KendalaType.TAT_SUDAH_ACC:  # NEW: TAT Sudah ACC media prompt
+            return Messages.TAT_SUDAH_ACC_MEDIA_PROMPT.format(
                 step=step + 1,
                 total=total_steps,
                 current_requirement=description

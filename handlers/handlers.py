@@ -630,7 +630,6 @@ class BotHandlers:
         return current_state not in [UserState.UNREGISTERED, UserState.PENDING_APPROVAL, UserState.REJECTED]
 
     async def menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle menu button clicks with enhanced user management"""
         text = update.message.text
         chat_id = update.effective_chat.id
         current_state = user_manager.get_user_state(chat_id)
@@ -639,7 +638,7 @@ class BotHandlers:
 
         # Handle admin and owner menu options (including new user removal option)
         admin_owner_buttons = [
-            "📋 Lihat Pendaftar", "👥 Lihat Admin", "➕ Tambah Admin", 
+            "📋 Lihat Pendaftar", "👥 Lihat Admin", "➕ Tambah Admin",
             "🗂️ Kelola User", "➖ Hapus Admin", "🗑️ Hapus User"
         ]
         if text in admin_owner_buttons:
@@ -689,12 +688,12 @@ class BotHandlers:
                 reply_markup=MenuKeyboards.back_menu()
             )
 
+        # NEW: TAT button now leads to submenu instead of direct input
         elif text == "🏗️ Tidak ada Tiang (TAT)":
-            user_manager.set_user_kendala_type(chat_id, KendalaType.TAT)
-            user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
+            user_manager.set_user_state(chat_id, UserState.TAT_SUBMENU)
             await update.message.reply_text(
-                self.data_processor.get_input_format(KendalaType.TAT),
-                reply_markup=MenuKeyboards.back_menu()
+                Messages.TAT_SUBMENU,
+                reply_markup=MenuKeyboards.tat_menu()
             )
 
         elif text == "🔌 ODP Full":
@@ -702,6 +701,23 @@ class BotHandlers:
             user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
             await update.message.reply_text(
                 self.data_processor.get_input_format(KendalaType.ODP_FULL),
+                reply_markup=MenuKeyboards.back_menu()
+            )
+
+        # NEW: TAT submenu options
+        elif text == "✅ TAT Sudah ACC":
+            user_manager.set_user_kendala_type(chat_id, KendalaType.TAT_SUDAH_ACC)
+            user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
+            await update.message.reply_text(
+                self.data_processor.get_input_format(KendalaType.TAT_SUDAH_ACC),
+                reply_markup=MenuKeyboards.back_menu()
+            )
+
+        elif text == "❌ TAT Belum ACC":
+            user_manager.set_user_kendala_type(chat_id, KendalaType.TAT_BELUM_ACC)
+            user_manager.set_user_state(chat_id, UserState.WAITING_INPUT)
+            await update.message.reply_text(
+                self.data_processor.get_input_format(KendalaType.TAT_BELUM_ACC),
                 reply_markup=MenuKeyboards.back_menu()
             )
 

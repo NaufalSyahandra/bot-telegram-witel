@@ -36,7 +36,6 @@ class TelegramBot:
         logger.info("Telegram application initialized with enhanced user management and spreadsheet integration")
 
     def _register_handlers(self):
-        """Register all bot handlers with enhanced user management and re-registration support"""
         # Command handlers
         self.app.add_handler(CommandHandler("start", bot_handlers.start_command))
         self.app.add_handler(CommandHandler("help", bot_handlers.help_command))
@@ -46,10 +45,10 @@ class TelegramBot:
         # Callback query handler for inline buttons (must be registered before menu handlers)
         self.app.add_handler(bot_handlers.get_callback_handler())
 
-        # Enhanced menu handlers with user management options (updated pattern)
         menu_pattern = (
             "^(🔧 Kendala Teknik|👤 Kendala Pelanggan|❓ Kendala Lainnya|🆘 Bantuan|"
             "📶 Tidak ada Jaringan \\(TAJ\\)|🏗️ Tidak ada Tiang \\(TAT\\)|🔌 ODP Full|"
+            "✅ TAT Sudah ACC|❌ TAT Belum ACC|"  # NEW: Added TAT submenu options
             "😤 Pelanggan Manja|❌ Pelanggan Cancel|🔄 Cabut Pasang|"
             "📋 Lihat Pendaftar|👥 Lihat Admin|➕ Tambah Admin|🗂️ Kelola User|➖ Hapus Admin|🗑️ Hapus User|"
             "🏠 Menu Utama|✅ Selesai)$"
@@ -72,7 +71,7 @@ class TelegramBot:
         # Error handler
         self.app.add_error_handler(bot_handlers.error_handler)
 
-        logger.info("All handlers registered successfully with enhanced user management and re-registration support")
+        logger.info("All handlers registered successfully with enhanced user management, re-registration support, and TAT submenu")
 
     async def _initialize_bot_data(self):
         """Initialize bot data from spreadsheet on startup"""

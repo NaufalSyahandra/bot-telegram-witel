@@ -11,6 +11,7 @@ class UserState(Enum):
     WAITING_INPUT = "waiting_input"
     KENDALA_MENU = "kendala_menu"
     TEKNIK_SUBMENU = "teknik_submenu"
+    TAT_SUBMENU = "tat_submenu"  # NEW: Added TAT submenu state
     PELANGGAN_SUBMENU = "pelanggan_submenu"
     WAITING_MEDIA = "waiting_media"
     ADMIN_MENU = "admin_menu"
@@ -20,7 +21,8 @@ class UserState(Enum):
 class KendalaType(Enum):
     """Kendala type enumeration"""
     TAJ = "taj"  # Tidak ada Jaringan
-    TAT = "tat"  # Tidak ada Tiang
+    TAT_BELUM_ACC = "tat_belum_acc"  # TAT Belum ACC Tiang (original TAT)
+    TAT_SUDAH_ACC = "tat_sudah_acc"  # TAT Sudah ACC Tiang (new)
     ODP_FULL = "odp_full"
     PELANGGAN_MANJA = "pelanggan_manja"
     PELANGGAN_CANCEL = "pelanggan_cancel"
@@ -145,12 +147,13 @@ Silakan daftar terlebih dahulu dengan mengirim NIK Anda."""
 
     KENDALA_MENU = """📋 Pilih jenis kendala:"""
     TEKNIK_SUBMENU = """🔧 Pilih kendala teknik:"""
+    TAT_SUBMENU = """🏗️ Pilih jenis TAT (Tidak ada Tiang):"""  # NEW: TAT submenu message
     PELANGGAN_SUBMENU = """👤 Pilih kendala pelanggan:"""
 
     # Format TAJ - NIK removed from input
     TAJ_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NAMA: John Doe
+Nama Pelanggan: John Doe
 SC: 12345
 STO: ABC
 Tag Pelanggan: PEL-456
@@ -158,32 +161,45 @@ Detail Kendala: Tidak ada Jaringan (TAJ)
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
 
-    # Format TAT - NIK removed from input
-    TAT_FORMAT = """📝 Silakan kirim data dengan format berikut:
+    # Format TAT Belum ACC - NIK removed from input (original TAT format)
+    TAT_BELUM_ACC_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NAMA: John Doe
+Nama Pelanggan: John Doe
 SC: 12345
 STO: ABC
 Nama ODP: ODP-XYZ
-ID Valins: VAL-123
 Tag Pelanggan: PEL-456
 Jumlah Tiang: 5
-Jarak: 20m
-Detail Kendala: Tidak ada Tiang (TAT)
+Jarak Real: 20m
+Detail Kendala: Tidak ada Tiang (TAT Belum ACC)
 CP RT/RW/Developer: Pak RT 081234567890
+
+⚠️ Pastikan semua field diisi dengan benar!"""
+
+    # NEW: Format TAT Sudah ACC - simplified format without CP RT/RW/Developer
+    TAT_SUDAH_ACC_FORMAT = """📝 Silakan kirim data dengan format berikut:
+
+Nama Pelanggan: John Doe
+SC: 12345
+STO: ABC
+Nama ODP: ODP-XYZ
+Tag Pelanggan: PEL-456
+Jumlah Tiang: 5
+Jarak Real: 20m
+Detail Kendala: Tidak ada Tiang (TAT Sudah ACC)
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
 
     # Format ODP Full - NIK removed from input
     ODP_FULL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NAMA: John Doe
+Nama Pelanggan: John Doe
 SC: 12345
 STO: ABC
 Nama ODP: ODP-XYZ
 ID Valins: VAL-123
 Tag Pelanggan: PEL-456
-Jarak: 20m
+Jarak Real: 20m
 Detail Kendala: ODP Full
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
@@ -191,13 +207,13 @@ Detail Kendala: ODP Full
     # Format Pelanggan Manja - NIK removed from input
     PELANGGAN_MANJA_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NAMA: John Doe
+Nama Pelanggan: John Doe
 SC: 12345
 STO: ABC
 Nama ODP: ODP-XYZ
 ID Valins: VAL-123
 Tag Pelanggan: PEL-456
-Jarak: 20m
+Jarak Real: 20m
 Detail Kendala: Pelanggan Manja
 Tanggal (Manja): 2024-01-15
 
@@ -207,7 +223,7 @@ Tanggal (Manja): 2024-01-15
     # Format Pelanggan Cancel - NIK removed from input
     PELANGGAN_CANCEL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NAMA: John Doe
+Nama Pelanggan: John Doe
 SC: 12345
 STO: ABC
 Alasan Cancel: Pelanggan tidak membutuhkan lagi
@@ -220,7 +236,7 @@ Tanggal (Cancel): 2024-01-15
     # Format Cabut Pasang - NIK removed from input
     CABUT_PASANG_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NAMA: John Doe
+Nama Pelanggan: John Doe
 SC: 12345
 STO: ABC
 No Indihome Aktif: 123456789
@@ -232,7 +248,7 @@ Detail Kendala: Cabut Pasang
     # Format Lainnya - NIK removed from input
     GENERAL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
-NAMA: John Doe
+Nama Pelanggan: John Doe
 SC: 12345
 STO: ABC
 Tag Pelanggan: PEL-456
@@ -251,7 +267,7 @@ Detail Kendala: {kendala_type}
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
 
-    TAT_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi secara berurutan!
+    TAT_BELUM_ACC_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi secara berurutan!
 
 🔸 **Langkah {step} dari {total}**: {current_requirement}
 
@@ -262,6 +278,16 @@ Detail Kendala: {kendala_type}
 4. 🎥 Video kondisi rumah pelanggan
 
 ⚠️ Kirim sesuai urutan! Jika salah jenis media akan ditolak."""
+
+    # NEW: TAT Sudah ACC media prompt - only one media required
+    TAT_SUDAH_ACC_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi!
+
+🔸 **Langkah {step} dari {total}**: {current_requirement}
+
+✅ Yang harus dikirim:
+1. 📸 Bukti sudah menyerahkan file untuk sitac
+
+⚠️ Kirim foto sesuai permintaan!"""
 
     ODP_FULL_MEDIA_PROMPT = """📸 **WAJIB**: Kirim media dokumentasi secara berurutan!
 
@@ -350,6 +376,13 @@ class MenuKeyboards:
         ["🏠 Menu Utama"]
     ]
 
+    # NEW: TAT submenu keyboard
+    TAT = [
+        ["✅ TAT Sudah ACC"],
+        ["❌ TAT Belum ACC"],
+        ["🏠 Menu Utama"]
+    ]
+
     PELANGGAN = [
         ["😤 Pelanggan Manja"],
         ["❌ Pelanggan Cancel"],
@@ -388,6 +421,10 @@ class MenuKeyboards:
         return ReplyKeyboardMarkup(MenuKeyboards.TEKNIK, resize_keyboard=True, one_time_keyboard=False)
 
     @staticmethod
+    def tat_menu():  # NEW: TAT submenu
+        return ReplyKeyboardMarkup(MenuKeyboards.TAT, resize_keyboard=True, one_time_keyboard=False)
+
+    @staticmethod
     def pelanggan_menu():
         return ReplyKeyboardMarkup(MenuKeyboards.PELANGGAN, resize_keyboard=True, one_time_keyboard=False)
 
@@ -408,14 +445,13 @@ class MenuKeyboards:
         return ReplyKeyboardMarkup(MenuKeyboards.MEDIA_OPTIONS, resize_keyboard=True)
 
 
-# Sheet configurations remain the same but NIK is now auto-populated
-# Tambahkan konfigurasi sheet "Teknisi" ke SHEET_CONFIGS
+# Sheet configurations - updated to handle both TAT types
 SHEET_CONFIGS = {
     "teknik": {
         "name": "Kendala Teknik",
         "columns": [
-            "NIK", "NAMA", "SC", "STO", "Detail Kendala", "Tag Pelanggan",
-            "Nama ODP", "ID Valins", "Jarak", "Jumlah Tiang", "CP RT/RW/Developer",
+            "NIK", "Nama Pelanggan", "SC", "STO", "Detail Kendala", "Tag Pelanggan",
+            "Nama ODP", "ID Valins", "Jarak Real", "Jumlah Tiang", "CP RT/RW/Developer",
             # Photo columns
             "Foto dengan Pelanggan/Foto Rumah Pelanggan",
             "Foto Rencana Pemasangan Tiang",
@@ -428,10 +464,10 @@ SHEET_CONFIGS = {
     "pelanggan": {
         "name": "Kendala Pelanggan",
         "columns": [
-            "NIK", "NAMA", "SC", "STO", "Detail Kendala",
-            "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak",
+            "NIK", "Nama Pelanggan", "SC", "STO", "Detail Kendala",
+            "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak Real",
             "No Indihome Aktif", "Eviden (Manja/Cancel)", "Tanggal (Manja)",
-            "Tanggal (Cancel)", "Alasan Cancel", 
+            "Tanggal (Cancel)", "Alasan Cancel",
             # Photo columns
             "Eviden Modem/Jalur Kabel ke Pelanggan",
             "Foto Bukti WA / Foto dengan Pelanggan",
@@ -441,7 +477,7 @@ SHEET_CONFIGS = {
     "lainnya": {
         "name": "Kendala Lainnya",
         "columns": [
-            "NIK", "NAMA", "SC", "STO", "Detail Kendala", "Tag Pelanggan",
+            "NIK", "Nama Pelanggan", "SC", "STO", "Detail Kendala", "Tag Pelanggan",
             # Photo columns
             "Foto Penjelasan Kondisi Kendala",
             "Video Penjelasan Kondisi Kendala",
@@ -460,35 +496,39 @@ SHEET_CONFIGS = {
 # Function to get sheet config based on kendala type
 def get_sheet_config(kendala_type: KendalaType):
     """Get sheet configuration based on kendala type"""
-    if kendala_type in [KendalaType.TAJ, KendalaType.TAT, KendalaType.ODP_FULL]:
+    if kendala_type in [KendalaType.TAJ, KendalaType.TAT_BELUM_ACC, KendalaType.TAT_SUDAH_ACC, KendalaType.ODP_FULL]:
         return SHEET_CONFIGS["teknik"]
     elif kendala_type in [KendalaType.PELANGGAN_MANJA, KendalaType.PELANGGAN_CANCEL, KendalaType.CABUT_PASANG]:
         return SHEET_CONFIGS["pelanggan"]
     else:  # LAINNYA
         return SHEET_CONFIGS["lainnya"]
 
-# Define which fields are required for each kendala type - NIK removed from required fields
+# Define which fields are required for each kendala type - UPDATED for TAT split
 REQUIRED_FIELDS = {
-    KendalaType.TAJ: ["NAMA", "SC", "STO", "Tag Pelanggan", "Detail Kendala"],
-    KendalaType.TAT: ["NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jumlah Tiang", "Jarak", "Detail Kendala", "CP RT/RW/Developer"],
-    KendalaType.ODP_FULL: ["NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak", "Detail Kendala"],
-    KendalaType.PELANGGAN_MANJA: ["NAMA", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak", "Detail Kendala", "Tanggal (Manja)"],
-    KendalaType.PELANGGAN_CANCEL: ["NAMA", "SC", "STO", "Alasan Cancel", "Detail Kendala", "Tanggal (Cancel)"],
-    KendalaType.CABUT_PASANG: ["NAMA", "SC", "STO", "No Indihome Aktif", "Detail Kendala"],
-    KendalaType.LAINNYA: ["NAMA", "SC", "STO", "Tag Pelanggan", "Detail Kendala"]
+    KendalaType.TAJ: ["Nama Pelanggan", "SC", "STO", "Tag Pelanggan", "Detail Kendala"],
+    KendalaType.TAT_BELUM_ACC: ["Nama Pelanggan", "SC", "STO", "Nama ODP", "Tag Pelanggan", "Jumlah Tiang", "Jarak Real", "Detail Kendala", "CP RT/RW/Developer"],
+    KendalaType.TAT_SUDAH_ACC: ["Nama Pelanggan", "SC", "STO", "Nama ODP", "Tag Pelanggan", "Jumlah Tiang", "Jarak Real", "Detail Kendala"],  # NEW: No CP RT/RW/Developer
+    KendalaType.ODP_FULL: ["Nama Pelanggan", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak Real", "Detail Kendala"],
+    KendalaType.PELANGGAN_MANJA: ["Nama Pelanggan", "SC", "STO", "Nama ODP", "ID Valins", "Tag Pelanggan", "Jarak Real", "Detail Kendala", "Tanggal (Manja)"],
+    KendalaType.PELANGGAN_CANCEL: ["Nama Pelanggan", "SC", "STO", "Alasan Cancel", "Detail Kendala", "Tanggal (Cancel)"],
+    KendalaType.CABUT_PASANG: ["Nama Pelanggan", "SC", "STO", "No Indihome Aktif", "Detail Kendala"],
+    KendalaType.LAINNYA: ["Nama Pelanggan", "SC", "STO", "Tag Pelanggan", "Detail Kendala"]
 }
 
-# Media fields remain the same
+# Media fields with types - UPDATED for TAT split
 MEDIA_FIELDS_WITH_TYPES = {
     KendalaType.TAJ: [
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
         ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
     ],
-    KendalaType.TAT: [
+    KendalaType.TAT_BELUM_ACC: [  # Original TAT with all media
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
         ("Foto Rencana Pemasangan Tiang", "photo", "📸 Foto rencana pemasangan tiang"),
         ("Bukti Sudah Menyerahkan File untuk Sitac", "photo", "📸 Bukti sudah menyerahkan file untuk sitac"),
         ("Video Kondisi Rumah Pelanggan", "video", "🎥 Video kondisi rumah pelanggan"),
+    ],
+    KendalaType.TAT_SUDAH_ACC: [  # NEW: TAT ACC with only sitac file
+        ("Bukti Sudah Menyerahkan File untuk Sitac", "photo", "📸 Bukti sudah menyerahkan file untuk sitac"),
     ],
     KendalaType.ODP_FULL: [
         ("Foto dengan Pelanggan/Foto Rumah Pelanggan", "photo", "📸 Foto dengan pelanggan/foto rumah pelanggan"),
@@ -496,11 +536,9 @@ MEDIA_FIELDS_WITH_TYPES = {
     ],
     KendalaType.PELANGGAN_MANJA: [
         ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Manja (foto bukti)"),
-        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
     ],
     KendalaType.PELANGGAN_CANCEL: [
-        ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Cancel (foto bukti)"),
-        ("Foto Bukti WA / Foto dengan Pelanggan", "photo", "📸 Foto bukti WA / foto dengan pelanggan"),
+        ("Eviden (Manja/Cancel)", "photo", "📸 Eviden Cancel (foto bukti)")
     ],
     KendalaType.CABUT_PASANG: [
         ("Eviden Modem/Jalur Kabel ke Pelanggan", "photo", "📸 Eviden modem/jalur kabel ke pelanggan"),
