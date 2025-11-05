@@ -154,9 +154,9 @@ Silakan daftar terlebih dahulu dengan mengirim NIK Anda."""
     TAJ_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
-Tag Pelanggan: PEL-456
+Tag Pelanggan: -8.1024xxx, -112.2304xxx
 Detail Kendala: Tidak ada Jaringan (TAJ)
 
 ⚠️ Pastikan semua field diisi dengan benar!"""
@@ -165,10 +165,10 @@ Detail Kendala: Tidak ada Jaringan (TAJ)
     TAT_BELUM_ACC_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
-Nama ODP: ODP-XYZ
-Tag Pelanggan: PEL-456
+Nama ODP: ODP-ABC-FA/01
+Tag Pelanggan: -8.1024xxx, -112.2304xxx
 Jumlah Tiang: 5
 Jarak Real: 20m
 Detail Kendala: Tidak ada Tiang (TAT Belum ACC)
@@ -180,10 +180,10 @@ CP RT/RW/Developer: Pak RT 081234567890
     TAT_SUDAH_ACC_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
-Nama ODP: ODP-XYZ
-Tag Pelanggan: PEL-456
+Nama ODP: ODP-ABC-FA/01
+Tag Pelanggan: -8.1024xxx, -112.2304xxx
 Jumlah Tiang: 5
 Jarak Real: 20m
 Detail Kendala: Tidak ada Tiang (TAT Sudah ACC)
@@ -194,11 +194,11 @@ Detail Kendala: Tidak ada Tiang (TAT Sudah ACC)
     ODP_FULL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
-Nama ODP: ODP-XYZ
-ID Valins: VAL-123
-Tag Pelanggan: PEL-456
+Nama ODP: ODP-ABC-FA/01
+ID Valins: 32xxxxxx
+Tag Pelanggan: -8.1024xxx, -112.2304xxx
 Jarak Real: 20m
 Detail Kendala: ODP Full
 
@@ -208,11 +208,11 @@ Detail Kendala: ODP Full
     PELANGGAN_MANJA_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
-Nama ODP: ODP-XYZ
-ID Valins: VAL-123
-Tag Pelanggan: PEL-456
+Nama ODP: ODP-ABC-FA/01
+ID Valins: 32xxxxxx
+Tag Pelanggan: -8.1024xxx, -112.2304xxx
 Jarak Real: 20m
 Detail Kendala: Pelanggan Manja
 Tanggal (Manja): 2024-01-15
@@ -224,7 +224,7 @@ Tanggal (Manja): 2024-01-15
     PELANGGAN_CANCEL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
 Alasan Cancel: Pelanggan tidak membutuhkan lagi
 Detail Kendala: Pelanggan Cancel
@@ -237,7 +237,7 @@ Tanggal (Cancel): 2024-01-15
     CABUT_PASANG_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
 No Indihome Aktif: 123456789
 Detail Kendala: Cabut Pasang
@@ -249,9 +249,9 @@ Detail Kendala: Cabut Pasang
     GENERAL_FORMAT = """📝 Silakan kirim data dengan format berikut:
 
 Nama Pelanggan: John Doe
-SC: 12345
+SC: AOixxxxxxxxxxxx
 STO: ABC
-Tag Pelanggan: PEL-456
+Tag Pelanggan: -8.1024xxx, -112.2304xxx
 Detail Kendala: {kendala_type}
 
 ⚠️ Pastikan semua field diisi dengan benar!"""

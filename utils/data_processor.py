@@ -57,8 +57,8 @@ class DataProcessor:
 
         # Validate SC format (should be numeric)
         sc = data.get("SC", "")
-        if sc and not sc.isdigit():
-            errors.append("SC harus berupa angka")
+        if not sc:
+            errors.append("SC Tidak Boleh Kosong")
 
         # Validate distance format (for TAT types, ODP_FULL, and PELANGGAN_MANJA)
         if kendala_type in [KendalaType.TAT_BELUM_ACC, KendalaType.TAT_SUDAH_ACC, KendalaType.ODP_FULL,
